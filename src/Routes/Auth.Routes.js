@@ -7,11 +7,13 @@ import {
   handleRegister,
   Logout,
   Session,
+  verifikasiPin,
 } from "../Controller/Authentikasi.controller.js";
 
 export const RoutesAuth = express.Router();
 
 RoutesAuth.post("/login", handleLogin);
+RoutesAuth.post("/verifikasi", verifikasiPin);
 RoutesAuth.post("/register", handleRegister);
 RoutesAuth.post("/session", Session);
 RoutesAuth.post("/logout", Logout);

@@ -58,6 +58,42 @@ export const handleLogin = async (req, res) => {
   }
 };
 
+export const verifikasiPin = async (req, res) => {
+  const { id, password } = req.body;
+  try {
+    if (!id || !password) {
+      return sendResponse(res, 400, "ID dan password harus diisi");
+    }
+
+    const checkUser = await prisma.user.findFirst({
+      where: { id: id },
+    });
+    if (!checkUser) {
+      return sendResponse(res, 400, "User tidak ditemukan");
+    }
+
+    const findUser = await prisma.user.findFirst({
+      where: {
+        id: id,
+      },
+    });
+
+    if (!findUser) {
+      return sendResponse(res, 400, "User tidak ditemukan");
+    }
+
+    const isMatch = await bcrypt.compare(password, findUser.password);
+
+    if (!isMatch) {
+      return sendResponse(res, 400, "Password salah");
+    }
+
+    sendResponse(res, 200, "Verifikasi berhasil", { userId: findUser.id });
+  } catch (error) {
+    sendError(res, error);
+  }
+};
+
 export const handleRegister = async (req, res) => {
   const { username, password, name } = req.body;
 
@@ -173,9 +209,9 @@ export const Logout = async (req, res) => {
 export const GetUser = async (req, res) => {
   try {
     const data = await prisma.user.findMany({
-        where:{
-            role: "user",
-        },
+      where: {
+        role: "user",
+      },
       select: {
         id: true,
         username: true,
@@ -191,7 +227,6 @@ export const GetUser = async (req, res) => {
   }
 };
 
-
 export const DateTime = async (req, res) => {
   try {
     const currentDate = new Date();
@@ -203,7 +238,7 @@ export const DateTime = async (req, res) => {
   } catch (error) {
     sendError(res, error);
   }
-}
+};
 
 export const getSingleUser = async (req, res) => {
   const { id } = req.params;
@@ -249,7 +284,6 @@ export const getSingleUser = async (req, res) => {
       tanggal_sekarang: today,
       sudah_absen: false,
     });
-
   } catch (error) {
     sendError(res, error);
   }
