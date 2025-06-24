@@ -85,7 +85,7 @@ export const verifikasiPin = async (req, res) => {
     const isMatch = await bcrypt.compare(password, findUser.password);
 
     if (!isMatch) {
-      return sendResponse(res, 400, "Password salah");
+      return sendResponse(res, 400, "Pin salah");
     }
 
     sendResponse(res, 200, "Verifikasi berhasil", { userId: findUser.id });
