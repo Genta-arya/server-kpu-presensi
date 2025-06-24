@@ -24,6 +24,7 @@ model User {
   role         String   @default("user")
   token        String?
   Absens       Absen[]
+  index  Int?
   createdAt    DateTime @default(now())
 }
 

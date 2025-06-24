@@ -220,6 +220,9 @@ export const GetUser = async (req, res) => {
         role: true,
         status_login: true,
       },
+      orderBy: {
+        index: "asc", // Pastikan kolom 'index' ada di model Prisma
+      },
     });
     sendResponse(res, 200, "Success", data);
   } catch (error) {
@@ -286,5 +289,77 @@ export const getSingleUser = async (req, res) => {
     });
   } catch (error) {
     sendError(res, error);
+  }
+};
+
+import { v4 as uuidv4 } from "uuid";
+
+export const automaticInsert = async () => {
+  const defaultPassword = "12345678";
+  const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+  const avatar = "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+  const role = "user";
+
+  const names = [
+    "FRANSISKUS KHOMAN, S.Pd",
+    "GITA RANTAU, S.Sos",
+    "NUR SOLEH, S.H.I",
+    "ROBBY SUGARA ROMANUS, S.Ag",
+    "SITI NUR AISAH, S.Pd",
+    "THERIAN AFFANDY, S.Sos",
+    "HENDRASYAH PUTRA, S.H, M.A",
+    "KADEK SUYADNYANA, S.Kom",
+    "ROSDIANA, A.Md",
+    "DORI KURNIAWAN, S.IP",
+    "MUHADIS EKO SURYANTO, S.IP",
+    "SHAIFUL BARRY, S.E",
+    "SYAFI'U NIZAR, S.H",
+    "RIKO PURWANTO, ST.",
+    "RIKI IRMANDA, S.H",
+    "ANGELIKA NINDYA PARAWATI BR. GULTOM, S.H",
+    "TIYA NARALITA, S.Kom",
+    "LAMBANG WARNA, S.Kom",
+    "M. GENTHA ARYA PRATAMA, S.Kom",
+    "RINALDO FARERA, S.Sos",
+    "RADHA FLORIDA, S.Pd",
+    "TRI SUCI NURHANDAYANI,A.Md",
+    "AGUNG PUJO NUGROHO, S.I.Kom",
+    "MELIGUN",
+    "DIMUS",
+    "YUSPEIN",
+    "MARYAN",
+    "APNI JULIANUS PETERA",
+    "HERMANDA KASITA EDO, S.Kom",
+    "FLAGIA DENATA, S.E",
+    "LIDIA WENNY, S.Ak",
+    "NADYA NANDA HERDA",
+    "YOPAN JAYADI",
+  ];
+
+  try {
+    for (let i = 0; i < names.length; i++) {
+      const fullName = names[i];
+      const username = fullName
+        .split(" ")[0]
+        .toLowerCase()
+        .replace(/[^a-z]/g, "");
+      const id = uuidv4();
+
+      await prisma.user.create({
+        data: {
+          id,
+          name: fullName,
+          username,
+          password: hashedPassword,
+          avatar,
+          role,
+          index: i + 1, // kamu harus pastikan kolom ini ada di model Prisma
+        },
+      });
+    }
+
+    console.log("Insert otomatis berhasil!");
+  } catch (error) {
+    console.error("Insert otomatis gagal:", error);
   }
 };
