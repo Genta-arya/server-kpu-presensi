@@ -208,6 +208,12 @@ export const Logout = async (req, res) => {
 
 export const GetUser = async (req, res) => {
   try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
     const data = await prisma.user.findMany({
       where: {
         role: "user",
@@ -219,17 +225,31 @@ export const GetUser = async (req, res) => {
         avatar: true,
         role: true,
         status_login: true,
+        index: true,
+        Absens: {
+          where: {
+            createdAt: {
+              gte: todayStart,
+              lte: todayEnd,
+            },
+          },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: {
-        index: "asc", // Pastikan kolom 'index' ada di model Prisma
+        index: "asc",
       },
     });
+
     sendResponse(res, 200, "Success", data);
   } catch (error) {
     sendError(res, 500, "Terjadi kesalahan saat mengambil data user", error);
   }
 };
-
 export const DateTime = async (req, res) => {
   try {
     const currentDate = new Date();
