@@ -9,7 +9,7 @@ export const handleLogin = async (req, res) => {
   const { nip, security } = req.body;
   try {
     if (!nip || !security) {
-      return sendResponse(res, 400, "NIP dan security harus diisi");
+      return sendResponse(res, 400, "NIP dan Password harus diisi");
     }
 
     const findUser = await prisma.user.findFirst({
@@ -17,12 +17,12 @@ export const handleLogin = async (req, res) => {
     });
 
     if (!findUser) {
-      return sendResponse(res, 400, "NIP atau security salah");
+      return sendResponse(res, 400, "NIP atau Password salah");
     }
 
     const isMatch = await bcrypt.compare(security, findUser.security);
     if (!isMatch) {
-      return sendResponse(res, 400, "NIP atau security salah");
+      return sendResponse(res, 400, "NIP atau Password salah");
     }
 
     const token = createToken({ id: findUser.id, role: findUser.role });
