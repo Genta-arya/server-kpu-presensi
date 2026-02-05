@@ -3,58 +3,214 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../Config/Prisma.js";
 import { createToken } from "../Utils/CreateToken.js";
 import { sendError, sendResponse } from "../Utils/Response.js";
-
+import speakeasy from "speakeasy";
+import QRCode from "qrcode";
 export const handleLogin = async (req, res) => {
-  const { username, password } = req.body;
+  const { nip, security } = req.body;
   try {
-    if (!username || !password) {
-      return sendResponse(res, 400, "Username dan password harus diisi");
+    if (!nip || !security) {
+      return sendResponse(res, 400, "NIP dan security harus diisi");
     }
+
     const findUser = await prisma.user.findFirst({
-      where: {
-        username: username,
-      },
+      where: { nip },
     });
 
     if (!findUser) {
-      return sendResponse(res, 400, "Username atau password salah");
+      return sendResponse(res, 400, "NIP atau security salah");
     }
-    const isMatch = await bcrypt.compare(password, findUser.password);
 
+    const isMatch = await bcrypt.compare(security, findUser.security);
     if (!isMatch) {
-      return sendResponse(res, 400, "Username atau password salah");
+      return sendResponse(res, 400, "NIP atau security salah");
     }
+
     const token = createToken({ id: findUser.id, role: findUser.role });
 
-    if (findUser.token) {
-      await prisma.user.update({
-        where: {
-          id: findUser.id,
-        },
-        data: {
-          status_login: true,
-        },
-      });
-    } else {
-      await prisma.user.update({
-        where: {
-          id: findUser.id,
-        },
-        data: {
-          token: token,
-          status_login: true,
-        },
-      });
-    }
-    const findUserUpdate = await prisma.user.findFirst({
-      where: {
-        id: findUser.id,
+    // simpan token dulu (pending login)
+    await prisma.user.update({
+      where: { id: findUser.id },
+      data: {
+        token,
+        status_login: false,
       },
     });
 
-    sendResponse(res, 200, "Login berhasil", { token: findUserUpdate.token });
+    // ===== MFA FLOW =====
+    if (!findUser.status_mfa) {
+      return sendResponse(res, 200, "Setup MFA dulu", {
+        mfa: "setup",
+        userId: findUser.id,
+      });
+    }
+
+    return sendResponse(res, 200, "Verifikasi OTP", {
+      mfa: "verify",
+      userId: findUser.id,
+    });
   } catch (error) {
     sendError(res, error);
+  }
+};
+
+export const verifyMFA = async (req, res) => {
+  const { userId, otp } = req.body;
+
+  console.log(userId, otp);
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    const valid = speakeasy.totp.verify({
+      secret: user.mfa_secret,
+      encoding: "base32",
+      token: otp,
+      window: 1,
+    });
+
+    if (!valid) {
+      return res.json({ status: false, message: "OTP salah" });
+    }
+
+    // login sukses
+    const jwt = createToken({ id: user.id, role: user.role });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        token: jwt,
+        status_login: true,
+      },
+    });
+
+    res.json({
+      status: true,
+      message: "Login berhasil",
+      token: jwt,
+    });
+  } catch (err) {
+    res.status(500).json({ status: false, message: err.message });
+  }
+};
+export const verifySetupMFA = async (req, res) => {
+  const { userId, otp } = req.body;
+  console.log(userId, otp);
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || !user.mfa_secret) {
+      return res
+        .status(400)
+        .json({ status: false, message: "User belum setup MFA" });
+    }
+
+    const verified = speakeasy.totp.verify({
+      secret: user.mfa_secret, // pakai field khusus MFA secret
+      encoding: "base32",
+      token: otp,
+      window: 1,
+    });
+
+    if (!verified) {
+      return res.json({ status: false, message: "OTP salah" });
+    }
+
+    // MFA aktif
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        status_mfa: true,
+      },
+    });
+
+    res.json({
+      status: true,
+      message: "MFA berhasil diaktifkan",
+    });
+  } catch (err) {
+    res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+export const setupMFA = async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ status: false, message: "User tidak ada" });
+    }
+
+    // jika status mfa sudah true
+    if (user.status_mfa) {
+      return res
+        .status(200)
+        .json({ status: false, message: "MFA sudah diaktifkan" });
+    }
+
+    const secret = speakeasy.generateSecret({
+      name: `Presensi-KPU : ${user.nip}`,
+    });
+
+    const qr = await QRCode.toDataURL(secret.otpauth_url);
+
+    // simpan secret di mfa_secret
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        mfa_secret: secret.base32,
+      },
+    });
+
+    res.json({
+      status: true,
+      data: {
+        qr,
+        secret: secret.base32,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ status: false, message: err.message });
+  }
+};
+
+export const resetMFA = async (req, res) => {
+  const { nip, password } = req.body;
+
+  try {
+    const user = await prisma.user.findFirst({ where: { nip } });
+    if (!user)
+      return res
+        .status(404)
+        .json({ status: false, message: "User tidak ditemukan" });
+
+    // verifikasi password dulu biar aman
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(401).json({ status: false, message: "Password salah" });
+
+    // reset MFA
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        status_mfa: false,
+        mfa_secret: null, // hapus secret lama
+      },
+    });
+
+    res.json({
+      status: true,
+      message: "MFA berhasil di-reset, silakan setup ulang",
+      userId: user.id, // supaya frontend bisa redirect
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ status: false, message: err.message });
   }
 };
 
@@ -143,7 +299,11 @@ export const Session = async (req, res) => {
       select: {
         id: true,
         username: true,
-        email: true,
+        name: true,
+        jabatan: true,
+        nip: true,
+        index: true,
+
         avatar: true,
         role: true,
         status_login: true,
@@ -152,6 +312,8 @@ export const Session = async (req, res) => {
     });
 
     if (!findUser) {
+      // hapus token di db
+  
       return sendResponse(res, 409, "Silahkan login terlebih dahulu");
     }
 
