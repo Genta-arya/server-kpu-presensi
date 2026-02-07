@@ -14,32 +14,41 @@ datasource db {
 }
 
 model User {
-  id           String  @id @default(uuid())
-  jabatan      String?
-  username     String?
-  name         String?
-  nip          String?
-  password     String
-  status_mfa   Boolean @default(false)
-  security     String  @default("kpusekadau")
-  status_login Boolean @default(false)
-  avatar       String?
-  role         String  @default("user")
-  token        String? @db.MediumText
-  mfa_secret   String? @db.MediumText
+  id             String          @id @default(uuid())
+  jabatan        String?
+  username       String?
+  name           String?
+  nip            String?
+  password       String
+  status_mfa     Boolean         @default(false)
+  security       String          @default("kpusekadau")
+  status_login   Boolean         @default(false)
+  avatar         String?
+  role           String          @default("user")
+  token          String?         @db.MediumText
+  mfa_secret     String?         @db.MediumText
+  Absens         Absen[]
+  LaporanHarians LaporanHarian[]
+  index          Int?
+  createdAt      DateTime        @default(now())
+}
 
-  Absens    Absen[]
-  index     Int?
+model LaporanHarian {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  deskripsi String   @db.MediumText
+  judul     String   @db.MediumText
+  tanggal   DateTime
   createdAt DateTime @default(now())
 }
 
 model Absen {
-  id      String @id @default(uuid())
-  userId  String
-  user    User   @relation(fields: [userId], references: [id])
-  status  String @default("tidak_hadir")
-  img_ttd String @db.MediumText
-
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  status    String   @default("tidak_hadir")
+  img_ttd   String   @db.MediumText
   koordinat String?
   createdAt DateTime @default(now())
 }
