@@ -93,3 +93,20 @@ export const EditLaporan = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const GetLaporanById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const laporan = await prisma.laporanHarian.findUnique({
+      where: {
+        id: id,
+      },
+    });
+    res.status(200).json({
+      message: "Laporan berhasil diambil",
+      data: laporan,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
