@@ -5,7 +5,7 @@ import { createToken } from "../Utils/CreateToken.js";
 import { sendError, sendResponse } from "../Utils/Response.js";
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
-import crypto from "crypto";
+import { randomBytes } from "crypto";
 export const handleLogin = async (req, res) => {
   const { nip, security } = req.body;
   try {
@@ -85,7 +85,7 @@ export const verifyMFA = async (req, res) => {
     });
 
     if (user.role === "admin_ppid") {
-      secretCode = crypto.randomBytes(32).toString("hex");
+      secretCode = randomBytes(32).toString("hex");
 
       await prisma.authCode.create({
         data: {
