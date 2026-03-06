@@ -9,7 +9,7 @@ export const PostLaporan = async (req, res) => {
     const laporan = await prisma.laporanHarian.create({
       data: {
         deskripsi,
-        // konversi kan date nya ke tipe Date
+
         tanggal: new Date(date),
         userId,
         judul,

@@ -83,15 +83,31 @@ export const verifyMFA = async (req, res) => {
       },
     });
 
+    if (user.role === "admin_ppid") {
+      secretCode = crypto.randomBytes(32).toString("hex");
+
+      await prisma.authCode.create({
+        data: {
+          code: secretCode,
+          userId: user.id,
+          expired_at: new Date(Date.now() + 60 * 1000), // 1 menit
+        },
+      });
+    }
+
     res.json({
       status: true,
       message: "Login berhasil",
       token: jwt,
+      role: user.role,
+      userId: user.id,
+      secretCode: user.role === "admin_ppid" ? secretCode : undefined,
     });
   } catch (err) {
     res.status(500).json({ status: false, message: err.message });
   }
 };
+
 export const verifySetupMFA = async (req, res) => {
   const { userId, otp } = req.body;
   console.log(userId, otp);
@@ -313,7 +329,7 @@ export const Session = async (req, res) => {
 
     if (!findUser) {
       // hapus token di db
-  
+
       return sendResponse(res, 409, "Silahkan login terlebih dahulu");
     }
 
