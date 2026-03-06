@@ -5,6 +5,7 @@ import { createToken } from "../Utils/CreateToken.js";
 import { sendError, sendResponse } from "../Utils/Response.js";
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
+import crypto from "crypto";
 export const handleLogin = async (req, res) => {
   const { nip, security } = req.body;
   try {
