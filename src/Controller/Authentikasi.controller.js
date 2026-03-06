@@ -304,37 +304,62 @@ export const handleRegister = async (req, res) => {
 };
 
 export const Session = async (req, res) => {
-  const { token } = req.body;
+  const { token, secret } = req.body;
 
   if (!token) {
     return sendResponse(res, 409, "Silahkan login terlebih dahulu");
   }
 
   try {
-    const findUser = await prisma.user.findFirst({
-      where: { token },
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        jabatan: true,
-        nip: true,
-        index: true,
+    if (token) {
+      const findUser = await prisma.user.findFirst({
+        where: { token },
+        select: {
+          id: true,
+          username: true,
+          name: true,
+          jabatan: true,
+          nip: true,
+          index: true,
 
-        avatar: true,
-        role: true,
-        status_login: true,
-        token: true,
-      },
-    });
+          avatar: true,
+          role: true,
+          status_login: true,
+          token: true,
+        },
+      });
+      if (!findUser) {
+        // hapus token di db
 
-    if (!findUser) {
-      // hapus token di db
-
-      return sendResponse(res, 409, "Silahkan login terlebih dahulu");
+        return sendResponse(res, 409, "Silahkan login terlebih dahulu");
+      }
+      sendResponse(res, 200, "Success", findUser);
+    } else {
+      if (!secret) {
+        return sendResponse(res, 409, "Silahkan login terlebih dahulu");
+      } else {
+        const findUser = await prisma.user.findFirst({
+          where: { secret },
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            jabatan: true,
+            nip: true,
+            index: true,
+            avatar: true,
+            role: true,
+            status_login: true,
+            token: true,
+          },
+        });
+        if (!findUser) {
+          // hapus token di db
+          return sendResponse(res, 409, "Silahkan login terlebih dahulu");
+        }
+        sendResponse(res, 200, "Success", findUser);
+      }
     }
-
-    sendResponse(res, 200, "Success", findUser);
   } catch (error) {
     const findUsers = await prisma.user.findFirst({
       where: { token },
@@ -377,7 +402,7 @@ export const Logout = async (req, res) => {
     }
     await prisma.user.update({
       where: { id: findUser.id },
-      data: { status_login: false, token: null },
+      data: { status_login: false, token: null, secret: null },
     });
     sendResponse(res, 200, "Logout berhasil");
   } catch (error) {
