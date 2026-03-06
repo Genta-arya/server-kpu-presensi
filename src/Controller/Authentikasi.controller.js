@@ -83,7 +83,7 @@ export const verifyMFA = async (req, res) => {
         status_login: true,
       },
     });
-
+ let secretCode = null;
     if (user.role === "admin_ppid") {
       secretCode = randomBytes(32).toString("hex");
 
