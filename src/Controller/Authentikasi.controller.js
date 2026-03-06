@@ -83,15 +83,14 @@ export const verifyMFA = async (req, res) => {
         status_login: true,
       },
     });
- let secretCode = null;
+    let secretCode = null;
     if (user.role === "admin_ppid") {
       secretCode = randomBytes(32).toString("hex");
 
-      await prisma.authCode.create({
+      await prisma.user.update({
+        where: { id: user.id },
         data: {
-          code: secretCode,
-          userId: user.id,
-          expired_at: new Date(Date.now() + 60 * 1000), // 1 menit
+          secret: secretCode,
         },
       });
     }
