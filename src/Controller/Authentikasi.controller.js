@@ -309,6 +309,7 @@ export const Session = async (req, res) => {
   try {
     if (token) {
       if (!token) {
+        console.log("Token tidak ditemukan");
         return sendResponse(res, 409, "Silahkan login terlebih dahulu");
       }
       const findUser = await prisma.user.findFirst({
@@ -335,6 +336,7 @@ export const Session = async (req, res) => {
       sendResponse(res, 200, "Success", findUser);
     } else {
       if (!secretCode) {
+        console.log("SecretCode tidak ditemukan");
         return sendResponse(res, 409, "Silahkan login terlebih dahulu");
       } else {
         const findUser = await prisma.user.findFirst({
@@ -367,6 +369,7 @@ export const Session = async (req, res) => {
       },
     });
     if (!findUsers) {
+      console.log("Token tidak ditemukan error");
       return sendResponse(res, 409, "Silahkan login terlebih dahulu");
     }
     if (error instanceof jwt.TokenExpiredError) {
