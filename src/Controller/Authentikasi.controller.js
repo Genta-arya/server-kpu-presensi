@@ -304,7 +304,7 @@ export const handleRegister = async (req, res) => {
 };
 
 export const Session = async (req, res) => {
-  const { token, secret } = req.body;
+  const { token, secretCode } = req.body;
 
   try {
     if (token) {
@@ -334,11 +334,11 @@ export const Session = async (req, res) => {
       }
       sendResponse(res, 200, "Success", findUser);
     } else {
-      if (!secret) {
+      if (!secretCode) {
         return sendResponse(res, 409, "Silahkan login terlebih dahulu");
       } else {
         const findUser = await prisma.user.findFirst({
-          where: { secret },
+          where: { secret: secretCode },
           select: {
             id: true,
             username: true,
