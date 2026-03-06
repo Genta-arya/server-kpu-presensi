@@ -104,6 +104,7 @@ export const verifyMFA = async (req, res) => {
       secretCode: user.role === "admin_ppid" ? secretCode : undefined,
     });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ status: false, message: err.message });
   }
 };
