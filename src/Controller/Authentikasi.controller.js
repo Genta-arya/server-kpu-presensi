@@ -26,16 +26,21 @@ export const handleLogin = async (req, res) => {
       return sendResponse(res, 400, "NIP atau Password salah");
     }
 
-    const token = createToken({ id: findUser.id, role: findUser.role });
+    // --- LOGIKA MULTIPLE LOGIN (CHECK EXISTING TOKEN) ---
+    // Jika user belum punya token, baru kita buatkan dan simpan ke DB
+    if (!findUser.token) {
+      const newToken = createToken({ id: findUser.id, role: findUser.role });
+      
+      await prisma.user.update({
+        where: { id: findUser.id },
+        data: {
+          token: newToken,
+          status_login: false, // Masih false karena butuh MFA
+        },
+      });
+    }
 
-    // simpan token dulu (pending login)
-    await prisma.user.update({
-      where: { id: findUser.id },
-      data: {
-        token,
-        status_login: false,
-      },
-    });
+    // Jika token sudah ada, kita skip proses update token dan langsung ke MFA Flow
 
     // ===== MFA FLOW =====
     if (!findUser.status_mfa) {
