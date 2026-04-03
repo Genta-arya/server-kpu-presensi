@@ -110,3 +110,7 @@ export const GetLaporanById = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+export const GetAnalisisLaporan = async (req, res) => { }
