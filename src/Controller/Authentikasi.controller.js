@@ -71,38 +71,38 @@ export const verifyMFA = async (req, res) => {
       return res.json({ status: false, message: "OTP salah" });
     }
 
-    // Buat token baru
-    const jwt = createToken({ id: user.id, role: user.role });
+    // --- LOGIKA MULTIPLE LOGIN (REUSE TOKEN) ---
+    let jwt;
+    let secretCode = user.secret;
 
-    // LOGIKA MULTIPLE LOGIN: 
-    // Jika user.token sudah ada (tidak null), jangan replace nilainya di database.
-    // Kita tetap kirim jwt baru ke client agar dia bisa login.
-    const dataToUpdate = {
-      status_login: true,
-    };
+    if (user.token) {
+      // 1. Jika token sudah ada di DB, gunakan yang sudah ada
+      jwt = user.token;
+    } else {
+      // 2. Jika token kosong (null), barulah create baru & update DB
+      jwt = createToken({ id: user.id, role: user.role });
 
-    if (!user.token) {
-      dataToUpdate.token = jwt;
-    }
+      const dataToUpdate = {
+        token: jwt,
+        status_login: true,
+      };
 
-    let secretCode = user.secret; // Ambil secret yang sudah ada jika ada
-    if (user.role === "admin_ppid") {
-      // Jika secret belum ada, baru buat baru
-      if (!user.secret) {
+      // Buat secretCode jika admin_ppid dan belum punya secret
+      if (user.role === "admin_ppid" && !user.secret) {
         secretCode = randomBytes(32).toString("hex");
         dataToUpdate.secret = secretCode;
       }
-    }
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: dataToUpdate,
-    });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: dataToUpdate,
+      });
+    }
 
     res.json({
       status: true,
       message: "Login berhasil",
-      token: jwt, // Client tetap dapat token baru untuk digunakan
+      token: jwt, // Mengirim token lama jika ada, atau baru jika sebelumnya null
       role: user.role,
       userId: user.id,
       secretCode: user.role === "admin_ppid" ? secretCode : undefined,
