@@ -77,42 +77,50 @@ export const verifyMFA = async (req, res) => {
       return res.json({ status: false, message: "OTP salah" });
     }
 
-    // 2. Logic Multiple Login: Jika token sudah ada di DB, langsung kembalikan
+    // 2. Logic Multiple Login & Patch untuk secretCode yang null
     if (user.token) {
+      let currentSecret = user.secret;
+
+      // KASUS KHUSUS: Jika dia admin_ppid tapi secret-nya belum ada di DB
+      if (user.role === "admin_ppid" && !user.secret) {
+        currentSecret = randomBytes(32).toString("hex");
+        
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { secret: currentSecret },
+        });
+      }
+
       return res.json({
         status: true,
         message: "Login berhasil",
         token: user.token,
         role: user.role,
         userId: user.id,
-        // Kirim secretCode yang sudah ada jika dia admin_ppid
-        secretCode: user.role === "admin_ppid" ? user.secret : undefined,
+        secretCode: user.role === "admin_ppid" ? currentSecret : undefined,
       });
     }
 
-    // 3. Jika token belum ada (null), baru buat baru
+    // 3. Jika token belum ada sama sekali (Login Baru)
     const jwt = createToken({ id: user.id, role: user.role });
     let secretCode = null;
 
-    // Data yang akan diupdate
     const updateData = {
       token: jwt,
       status_login: true,
     };
 
-    // Khusus admin_ppid: buat secret jika belum ada
     if (user.role === "admin_ppid") {
-      secretCode = randomBytes(32).toString("hex");
+      // Gunakan secret yang sudah ada jika tersedia, jika tidak buat baru
+      secretCode = user.secret || randomBytes(32).toString("hex");
       updateData.secret = secretCode;
     }
 
-    // Update database sekaligus dalam satu perintah
     await prisma.user.update({
       where: { id: user.id },
       data: updateData,
     });
 
-    // 4. Respon untuk login pertama kali (saat token baru dibuat)
     res.json({
       status: true,
       message: "Login berhasil",
