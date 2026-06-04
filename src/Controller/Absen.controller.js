@@ -5,9 +5,7 @@ export const createAbsen = async (req, res) => {
     const { userId, img_ttd, status, koordinat } = req.body;
 
     if (!userId || !img_ttd || !koordinat) {
-      return res
-        .status(400)
-        .json({ message: "Semua field wajib diisi" });
+      return res.status(400).json({ message: "Semua field wajib diisi" });
     }
 
     const today = new Date();
@@ -41,6 +39,45 @@ export const createAbsen = async (req, res) => {
     });
 
     res.status(201).json({ message: "Absen berhasil", data: absen });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Terjadi kesalahan", error: error.message });
+  }
+};
+
+export const getAbsen = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { month, year } = req.query;
+
+    let whereCondition = {
+      userId: id,
+    };
+
+    if (month && year) {
+      const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+
+      whereCondition.createdAt = {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      };
+    }
+
+    const absen = await prisma.absen.findMany({
+      where: whereCondition,
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.status(200).json({ 
+      message: "Absen berhasil diambil", 
+      count: absen.length, 
+      data: absen 
+    });
   } catch (error) {
     console.error(error);
     res

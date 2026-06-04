@@ -7,25 +7,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  SEKRETARIS
+  K_SDM
+  K_KUL
+  K_RDT
+  K_TEKHUM
+  ADMIN_PPID
+  USER
+}
+
+model Jabatan {
+  id        String   @id @default(uuid())
+  nama      String   @unique
+  kode      String? // Opsional jika diperlukan
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+// 2. Model Unit Kerja (Tabel Terpisah)
+model UnitKerja {
+  id   String  @id @default(uuid())
+  nama String  @unique
+  kode String?
+
+  createdAt     DateTime       @default(now())
+  strukturUnits StrukturUnit[]
+}
+
+model StrukturUnit {
+  id          String    @id @default(uuid())
+  unitKerjaId String
+  unitKerja   UnitKerja @relation(fields: [unitKerjaId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id]) // Prisma sekarang akan cocok dengan relasi di atas
+  posisi      Posisi
+}
+
+enum Posisi {
+  KASUBAG
+  STAFF
+  SEKRETARIS
+  KEPALA_DIVISI
+}
+
+// 3. User sekarang terhubung dengan relasi ke Jabatan dan UnitKerja
 model User {
-  id             String          @id @default(uuid())
-  jabatan        String?
-  username       String?
-  name           String?
-  nip            String?
-  password       String
-  status_mfa     Boolean         @default(false)
-  security       String          @default("kpusekadau")
-  status_login   Boolean         @default(false)
-  avatar         String?
-  role           String          @default("user")
-  token          String?         @db.MediumText
-  mfa_secret     String?         @db.MediumText
+  id           String  @id @default(uuid())
+  username     String? @unique
+  name         String?
+  nip          String?
+  password     String
+  status_mfa   Boolean @default(false)
+  security     String  @default("kpusekadau")
+  status_login Boolean @default(false)
+  avatar       String?
+  role         Role    @default(USER)
+  token        String? @db.MediumText
+  mfa_secret   String? @db.MediumText
+  active       Boolean @default(true)
+
+  // Relasi
+  jabatanId String? // Foreign Key ke Jabatan
+  jabatan   Jabatan? @relation(fields: [jabatanId], references: [id])
+
+  // unitKerjaId String? // Foreign Key ke UnitKerja
+  // unitKerja   UnitKerja? @relation(fields: [unitKerjaId], references: [id])
+
+  strukturUnit StrukturUnit[]
+
   Absens         Absen[]
   LaporanHarians LaporanHarian[]
-  index          Int?
-  secret         String?         @db.MediumText
-  createdAt      DateTime        @default(now())
+
+  index     Int?
+  secret    String?  @db.MediumText
+  createdAt DateTime @default(now())
 }
 
 model LaporanHarian {

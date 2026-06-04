@@ -6,58 +6,6 @@ import { sendError, sendResponse } from "../Utils/Response.js";
 import speakeasy from "speakeasy";
 import QRCode from "qrcode";
 import { randomBytes } from "crypto";
-export const handleLogin = async (req, res) => {
-  const { nip, security } = req.body;
-  try {
-    if (!nip || !security) {
-      return sendResponse(res, 400, "NIP dan Password harus diisi");
-    }
-
-    const findUser = await prisma.user.findFirst({
-      where: { nip },
-    });
-
-    if (!findUser) {
-      return sendResponse(res, 400, "NIP atau Password salah");
-    }
-
-    const isMatch = await bcrypt.compare(security, findUser.security);
-    if (!isMatch) {
-      return sendResponse(res, 400, "NIP atau Password salah");
-    }
-
-    // --- LOGIKA MULTIPLE LOGIN (CHECK EXISTING TOKEN) ---
-    // Jika user belum punya token, baru kita buatkan dan simpan ke DB
-    if (!findUser.token) {
-      const newToken = createToken({ id: findUser.id, role: findUser.role });
-      
-      await prisma.user.update({
-        where: { id: findUser.id },
-        data: {
-          token: newToken,
-          status_login: false, // Masih false karena butuh MFA
-        },
-      });
-    }
-
-    // Jika token sudah ada, kita skip proses update token dan langsung ke MFA Flow
-
-    // ===== MFA FLOW =====
-    if (!findUser.status_mfa) {
-      return sendResponse(res, 200, "Setup MFA dulu", {
-        mfa: "setup",
-        userId: findUser.id,
-      });
-    }
-
-    return sendResponse(res, 200, "Verifikasi OTP", {
-      mfa: "verify",
-      userId: findUser.id,
-    });
-  } catch (error) {
-    sendError(res, error);
-  }
-};
 
 export const verifyMFA = async (req, res) => {
   const { userId, otp } = req.body;
@@ -84,7 +32,7 @@ export const verifyMFA = async (req, res) => {
       // KASUS KHUSUS: Jika dia admin_ppid tapi secret-nya belum ada di DB
       if (user.role === "admin_ppid" && !user.secret) {
         currentSecret = randomBytes(32).toString("hex");
-        
+
         await prisma.user.update({
           where: { id: user.id },
           data: { secret: currentSecret },
@@ -129,7 +77,6 @@ export const verifyMFA = async (req, res) => {
       userId: user.id,
       secretCode: user.role === "admin_ppid" ? secretCode : undefined,
     });
-    
   } catch (err) {
     console.error(err);
     res.status(500).json({ status: false, message: err.message });
@@ -224,6 +171,7 @@ export const setupMFA = async (req, res) => {
 
 export const resetMFA = async (req, res) => {
   const { nip, password } = req.body;
+  console.log(nip, password);
 
   try {
     const user = await prisma.user.findFirst({ where: { nip } });
@@ -233,7 +181,7 @@ export const resetMFA = async (req, res) => {
         .json({ status: false, message: "User tidak ditemukan" });
 
     // verifikasi password dulu biar aman
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.security);
     if (!isMatch)
       return res.status(401).json({ status: false, message: "Password salah" });
 
@@ -294,29 +242,30 @@ export const verifikasiPin = async (req, res) => {
 };
 
 export const handleRegister = async (req, res) => {
-  const { username, password, name } = req.body;
-
+  const { password, name } = req.body;
+  const nip = String(req.body.nip);
   try {
-    if (!username || !password) {
-      return sendResponse(res, 400, "Username dan password harus diisi");
+    if (!nip || !password) {
+      return sendResponse(res, 400, "NIP dan password harus diisi");
     }
     const findUser = await prisma.user.findFirst({
       where: {
-        username: username,
+        // convert nip ke string
+        nip: nip,
       },
     });
 
     if (findUser) {
-      return sendResponse(res, 400, "Email sudah terdaftar");
+      return sendResponse(res, 400, "NIP sudah terdaftar");
     }
 
     const hashedPassword = await bcrypt.hash("12345678", 10);
 
     await prisma.user.create({
       data: {
-        username: username,
+        nip: nip,
         name: name,
-        role: "user",
+        role: ROLES.USER,
 
         avatar: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
         password: hashedPassword,
@@ -438,8 +387,114 @@ export const Logout = async (req, res) => {
   }
 };
 
+export const handleLogin = async (req, res) => {
+  const { nip, security } = req.body;
+
+  try {
+    if (!nip || !security) {
+      return sendResponse(res, 400, "NIP dan Password harus diisi");
+    }
+
+    const findUser = await prisma.user.findFirst({
+      where: { nip },
+    });
+
+    if (!findUser) {
+      return sendResponse(res, 400, "NIP atau Password salah");
+    }
+
+    const isMatch = await bcrypt.compare(security, findUser.security);
+    if (!isMatch) {
+      return sendResponse(res, 400, "NIP atau Password salah");
+    }
+
+    // --- LOGIKA MULTIPLE LOGIN (CHECK EXISTING TOKEN) ---
+    // Jika user belum punya token, baru kita buatkan dan simpan ke DB
+    if (!findUser.token) {
+      const newToken = createToken({ id: findUser.id, role: findUser.role });
+
+      await prisma.user.update({
+        where: { id: findUser.id },
+        data: {
+          token: newToken,
+          status_login: false, // Masih false karena butuh MFA
+        },
+      });
+    }
+
+    // Jika token sudah ada, kita skip proses update token dan langsung ke MFA Flow
+
+    // ===== MFA FLOW =====
+    if (!findUser.status_mfa) {
+      return sendResponse(res, 200, "Setup MFA dulu", {
+        mfa: "setup",
+        userId: findUser.id,
+      });
+    }
+
+    return sendResponse(res, 200, "Verifikasi OTP", {
+      mfa: "verify",
+      userId: findUser.id,
+    });
+  } catch (error) {
+    console.log(error);
+    sendError(res, error);
+  }
+};
+export const ResetPassword = async (req, res) => {
+  const { userId, oldPassword, newPassword } = req.body;
+
+  try {
+    // 1. Validasi input data
+    if (!userId || !oldPassword || !newPassword) {
+      return sendResponse(res, 400, "Semua kolom harus diisi");
+    }
+
+    if (newPassword.length < 6) {
+      return sendResponse(res, 400, "Kata sandi baru minimal harus 6 karakter");
+    }
+
+    // 2. Cari user berdasarkan ID (userId dikirim dari frontend yang sudah login)
+    const findUser = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!findUser) {
+      return sendResponse(res, 404, "Pengguna tidak ditemukan");
+    }
+
+    // 3. Verifikasi kata sandi lama dengan field 'security' di DB
+    const isMatch = await bcrypt.compare(oldPassword, findUser.security);
+    if (!isMatch) {
+      return sendResponse(res, 400, "Kata sandi lama yang Anda masukkan salah");
+    }
+
+    // 4. Hash kata sandi baru
+    const salt = await bcrypt.genSalt(10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
+    // 5. Update kata sandi baru ke database
+    await prisma.user.update({
+      where: { id: findUser.id },
+      data: {
+        security: hashedNewPassword,
+      },
+    });
+
+    return sendResponse(res, 200, "Kata sandi berhasil diperbarui");
+  } catch (error) {
+    sendError(res, error);
+  }
+};
 export const GetUser = async (req, res) => {
   try {
+    // 1. Tangkap query parameter dari URL frontend (default ke 'active' jika tidak diisi)
+    const { status } = req.query;
+    console.log(status);
+
+    // Tentukan kondisi boolean untuk field 'active' di database
+    const isActiveFilter = status === "inactive" ? false : true;
+
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -448,7 +503,11 @@ export const GetUser = async (req, res) => {
 
     const data = await prisma.user.findMany({
       where: {
-        role: "user",
+        role: {
+          in: [ROLES.USER, ROLES.SEKRETARIS],
+        },
+        // 2. Filter status keaktifan/arsip dinamis sesuai tab yang diklik
+        active: isActiveFilter,
       },
       select: {
         id: true,
@@ -456,9 +515,11 @@ export const GetUser = async (req, res) => {
         name: true,
         avatar: true,
         jabatan: true,
+        nip: true,
         role: true,
         status_login: true,
         index: true,
+        active: true, // Sertakan ini agar frontend tahu status aslinya
         Absens: {
           where: {
             createdAt: {
@@ -472,15 +533,35 @@ export const GetUser = async (req, res) => {
             createdAt: true,
           },
         },
+        strukturUnit: {
+          select: {
+            id: true,
+            posisi: true,
+            unitKerjaId: true,
+            unitKerja: {
+              select: {
+                id: true,
+                nama: true,
+                kode: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         index: "asc",
       },
     });
 
-    sendResponse(res, 200, "Success", data);
+    return sendResponse(res, 200, "Success", data);
   } catch (error) {
-    sendError(res, 500, "Terjadi kesalahan saat mengambil data user", error);
+    console.error("Error GetUser:", error);
+    return sendError(
+      res,
+      500,
+      "Terjadi kesalahan saat mengambil data user",
+      error,
+    );
   }
 };
 export const DateTime = async (req, res) => {
@@ -498,7 +579,6 @@ export const DateTime = async (req, res) => {
 
 export const getSingleUser = async (req, res) => {
   const { id } = req.params;
-  console.log(id);
 
   const currentDate = new Date();
   const today = currentDate.toISOString().split("T")[0]; // YYYY-MM-DD
@@ -510,18 +590,36 @@ export const getSingleUser = async (req, res) => {
         id: true,
         username: true,
         name: true,
-        jabatan: true,
         avatar: true,
+        nip: true, // Tambahkan ini agar NIP bisa tampil di detail
         role: true,
         status_login: true,
+        status_mfa: true,
+        jabatan: true, // Mengambil object data Jabatan (id, nama, kode)
+
+        // JALUR RELASI BARU: Ambil data pivot sekaligus JOIN ke tabel UnitKerja (Subbagian)
+        strukturUnit: {
+          select: {
+            id: true,
+            posisi: true,
+            unitKerjaId: true,
+            unitKerja: {
+              select: {
+                id: true,
+                nama: true,
+                kode: true,
+              },
+            },
+          },
+        },
       },
     });
 
     if (!user) {
-      return sendResponse(res, 404, "User not found");
+      return sendResponse(res, 404, "User tidak ditemukan");
     }
 
-    // Cek apakah user sudah absen hari ini
+    // Cek status absen hari ini
     const absensiHariIni = await prisma.absen.findFirst({
       where: {
         userId: id,
@@ -532,21 +630,24 @@ export const getSingleUser = async (req, res) => {
       },
     });
 
-    if (absensiHariIni) {
-      return sendResponse(res, 400, "Kamu sudah absen hari ini");
-    }
-
-    return sendResponse(res, 200, "User belum absen hari ini", {
+    // Kembalikan data user lengkap dengan info penanda absensi hari ini
+    return sendResponse(res, 200, "User data retrieved", {
       ...user,
       tanggal_sekarang: today,
-      sudah_absen: false,
+      sudah_absen: !!absensiHariIni, // Mengubah object/null menjadi boolean true/false dengan aman
     });
   } catch (error) {
-    sendError(res, error);
+    console.error("Error getSingleUser:", error);
+    return sendError(
+      res,
+      500,
+      "Terjadi kesalahan saat mengambil detail user",
+      error,
+    );
   }
 };
-
 import { v4 as uuidv4 } from "uuid";
+import { ROLES } from "../Utils/Constants.js";
 
 export const automaticInsert = async () => {
   const defaultPassword = "12345678";
@@ -615,5 +716,41 @@ export const automaticInsert = async () => {
     console.log("Insert otomatis berhasil!");
   } catch (error) {
     console.error("Insert otomatis gagal:", error);
+  }
+};
+
+export const updateSingleUser = async (req, res) => {
+  const { id } = req.params;
+  const { name, jabatan, nip, status } = req.body;
+
+  if (!name || !jabatan || !nip) {
+    return sendResponse(res, 400, "Nama, Jabatan, dan NIP harus diisi");
+  }
+  // checkNip tidak boleh sama
+  const checkNip = await prisma.user.findFirst({
+    where: {
+      nip: nip,
+      NOT: {
+        id: id,
+      },
+    },
+  });
+  if (checkNip) {
+    return sendResponse(res, 400, "NIP sudah digunakan oleh user lain");
+  }
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: id },
+      data: {
+        name: name,
+        jabatanId: jabatan,
+        nip: nip,
+        active: status ? true : false,
+      },
+    });
+    return sendResponse(res, 200, "User berhasil diupdate", updatedUser);
+  } catch (error) {
+    console.error("Error updating user:", error);
+    sendError(res, 500, "Terjadi kesalahan saat mengupdate user", error);
   }
 };

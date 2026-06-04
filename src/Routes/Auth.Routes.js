@@ -7,8 +7,10 @@ import {
   handleRegister,
   Logout,
   resetMFA,
+  ResetPassword,
   Session,
   setupMFA,
+  updateSingleUser,
   verifikasiPin,
   verifyMFA,
   verifySetupMFA,
@@ -17,6 +19,7 @@ import {
 export const RoutesAuth = express.Router();
 
 RoutesAuth.post("/login", handleLogin);
+RoutesAuth.post("/reset-password", ResetPassword);
 RoutesAuth.get("/mfa/setup/:userId", setupMFA);
 RoutesAuth.post("/mfa/reset", resetMFA);
 RoutesAuth.post("/mfa/verify-setup", verifySetupMFA);
@@ -28,3 +31,4 @@ RoutesAuth.post("/logout", Logout);
 RoutesAuth.get("/user", GetUser);
 RoutesAuth.get("/user/:id", getSingleUser);
 RoutesAuth.get("/date", DateTime);
+RoutesAuth.post("/update-user/:id", updateSingleUser);
