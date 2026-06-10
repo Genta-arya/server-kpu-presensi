@@ -1,15 +1,19 @@
 import express from "express";
 import {
   DateTime,
+  deleteUser,
   getSingleUser,
   GetUser,
   handleLogin,
   handleRegister,
   Logout,
+  reorderUser,
   resetMFA,
   ResetPassword,
   Session,
   setupMFA,
+  updateAvatar,
+  updateProfilSingleUser,
   updateSingleUser,
   verifikasiPin,
   verifyMFA,
@@ -32,3 +36,7 @@ RoutesAuth.get("/user", GetUser);
 RoutesAuth.get("/user/:id", getSingleUser);
 RoutesAuth.get("/date", DateTime);
 RoutesAuth.post("/update-user/:id", updateSingleUser);
+RoutesAuth.post("/update-profil/:id", updateProfilSingleUser);
+RoutesAuth.post("/update-avatar/:id", updateAvatar);
+RoutesAuth.delete("/delete-user/:id", deleteUser);
+RoutesAuth.post("/update-index", reorderUser);

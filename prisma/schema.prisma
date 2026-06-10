@@ -55,34 +55,65 @@ enum Posisi {
 
 // 3. User sekarang terhubung dengan relasi ke Jabatan dan UnitKerja
 model User {
-  id           String  @id @default(uuid())
-  username     String? @unique
+  id           String    @id @default(uuid())
+  username     String?   @unique
   name         String?
   nip          String?
+  email        String?   @unique
+  noHp         String?
+  npwp         String?
   password     String
-  status_mfa   Boolean @default(false)
-  security     String  @default("kpusekadau")
-  status_login Boolean @default(false)
+  status_mfa   Boolean   @default(false)
+  security     String    @default("kpusekadau")
+  status_login Boolean   @default(false)
   avatar       String?
-  role         Role    @default(USER)
-  token        String? @db.MediumText
-  mfa_secret   String? @db.MediumText
-  active       Boolean @default(true)
-
+  role         Role      @default(USER)
+  token        String?   @db.MediumText
+  mfa_secret   String?   @db.MediumText
+  active       Boolean   @default(true)
+  golonganId   String?
+  golongan     Golongan? @relation(fields: [golonganId], references: [id])
+  gaji         String?
   // Relasi
-  jabatanId String? // Foreign Key ke Jabatan
-  jabatan   Jabatan? @relation(fields: [jabatanId], references: [id])
+  jabatanId    String? // Foreign Key ke Jabatan
+  jabatan      Jabatan?  @relation(fields: [jabatanId], references: [id])
 
   // unitKerjaId String? // Foreign Key ke UnitKerja
   // unitKerja   UnitKerja? @relation(fields: [unitKerjaId], references: [id])
 
   strukturUnit StrukturUnit[]
 
-  Absens         Absen[]
-  LaporanHarians LaporanHarian[]
+  Absens           Absen[]
+  LaporanHarians   LaporanHarian[]
+  ReportKesalahans ReportKesalahanData[]
 
   index     Int?
   secret    String?  @db.MediumText
+  createdAt DateTime @default(now())
+}
+
+model ReportKesalahanData {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Field tambahan untuk kebutuhan laporan
+  catatan   String   @db.Text
+  status    String   @default("PENDING") // PENDING, PROCESSED, atau REJECTED
+  createdAt DateTime @default(now())
+}
+
+model Golongan {
+  id        String   @id @default(uuid())
+  nama      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+model Notifikasi {
+  id        String   @id @default(uuid())
+  message   String   @db.MediumText
+  status    String   @default("unread")
   createdAt DateTime @default(now())
 }
 
@@ -97,11 +128,14 @@ model LaporanHarian {
 }
 
 model Absen {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  status    String   @default("tidak_hadir")
-  img_ttd   String   @db.MediumText
-  koordinat String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  status     String   @default("tidak_hadir")
+  img_ttd    String   @db.MediumText
+  keterangan String?  @db.MediumText
+  koordinat  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, createdAt])
 }
