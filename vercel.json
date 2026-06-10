@@ -13,10 +13,10 @@
       "dest": "/"
     }
   ],
- "crons": [
+  "crons": [
     {
       "path": "/api/cron/generate-absen",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
