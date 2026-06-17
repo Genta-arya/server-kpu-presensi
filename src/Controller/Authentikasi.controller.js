@@ -315,6 +315,18 @@ export const Session = async (req, res) => {
           npwp: true,
           noHp: true,
           email: true,
+          gaji: true,
+          golongan: true,
+          SaldoCutis: true,
+          strukturUnit: {
+            select: {
+              id: true,
+              posisi: true,
+              unitKerjaId: true,
+              unitKerja: true,
+            },
+          },
+
           avatar: true,
           role: true,
           status_login: true,
@@ -337,7 +349,7 @@ export const Session = async (req, res) => {
         await prisma.user.update({
           where: { secret: secretCode },
           data: { status_login: false, token: null },
-        })
+        });
         return sendResponse(res, 409, "Silahkan login terlebih dahulu");
       } else {
         const findUser = await prisma.user.findFirst({
@@ -627,6 +639,10 @@ export const getSingleUser = async (req, res) => {
         nip: true, // Tambahkan ini agar NIP bisa tampil di detail
         role: true,
         status_login: true,
+        golongan: true,
+        gaji: true,
+        email: true,
+        noHp: true,
         status_mfa: true,
         jabatan: true, // Mengambil object data Jabatan (id, nama, kode)
 
@@ -754,9 +770,9 @@ export const automaticInsert = async () => {
 
 export const updateSingleUser = async (req, res) => {
   const { id } = req.params;
-  const { name, jabatan, nip, status } = req.body;
+  const { name, jabatanId, nip, status } = req.body;
 
-  if (!name || !jabatan || !nip) {
+  if (!name || !jabatanId || !nip) {
     return sendResponse(res, 400, "Nama, Jabatan, dan NIP harus diisi");
   }
   // checkNip tidak boleh sama
@@ -776,7 +792,7 @@ export const updateSingleUser = async (req, res) => {
       where: { id: id },
       data: {
         name: name,
-        jabatanId: jabatan,
+        jabatanId: jabatanId,
         nip: nip,
         active: status ? true : false,
       },
@@ -788,6 +804,16 @@ export const updateSingleUser = async (req, res) => {
         nip: true,
         index: true,
         npwp: true,
+        gaji: true,
+        SaldoCutis: true,
+        strukturUnit: {
+          select: {
+            id: true,
+            posisi: true,
+            unitKerjaId: true,
+            unitKerja: true,
+          },
+        },
         noHp: true,
         email: true,
         active: true,
@@ -825,6 +851,17 @@ export const updateAvatar = async (req, res) => {
         index: true,
         npwp: true,
         noHp: true,
+        SaldoCutis: true,
+        gaji: true,
+        golongan: true,
+        strukturUnit: {
+          select: {
+            unit: true,
+            posisi: true,
+            unitKerja: true,
+          },
+        },
+
         email: true,
         avatar: true,
         role: true,
@@ -925,10 +962,20 @@ export const updateProfilSingleUser = async (req, res) => {
         npwp: true,
         jabatan: true,
         golongan: true,
+        SaldoCutis: true,
         gaji: true,
+
         avatar: true,
         role: true,
         username: true,
+        strukturUnit: {
+          select: {
+            id: true,
+            posisi: true,
+            unitKerjaId: true,
+            unitKerja: true,
+          },
+        },
         // TIDAK ADA kolom password di sini
       },
     });

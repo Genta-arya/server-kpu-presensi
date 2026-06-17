@@ -27,31 +27,30 @@ export const PostLaporan = async (req, res) => {
 
 export const GetLaporan = async (req, res) => {
   try {
-    const { idUser } = req.query;
-    console.log(idUser);
-    let laporan;
+    const { idUser, date } = req.query;
+    const isDateValid = date && date !== "undefined" && date !== "null" && !isNaN(Date.parse(date));
 
-    if (!idUser) {
-      laporan = await prisma.laporanHarian.findMany();
-      res.status(200).json({
-        message: "Laporan berhasil diambil",
-        data: laporan,
-      });
-    } else {
-      laporan = await prisma.laporanHarian.findMany({
-        where: {
-          userId: idUser,
+    const whereCondition = {
+      ...(idUser && { userId: idUser }),
+      ...(isDateValid && {
+        createdAt: {
+          gte: new Date(new Date(date).setHours(0, 0, 0, 0)),
+          lte: new Date(new Date(date).setHours(23, 59, 59, 999)),
         },
-      });
-      res.status(200).json({
-        message: "Laporan berhasil diambil",
-        data: laporan,
-      });
-    }
+      }),
+    };
+
+    const laporan = await prisma.laporanHarian.findMany({
+      where: whereCondition,
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.status(200).json({ message: "Berhasil", count: laporan.length, data: laporan });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 export const DeleteLaporan = async (req, res) => {
   try {
@@ -113,4 +112,3 @@ export const GetLaporanById = async (req, res) => {
 
 
 
-export const GetAnalisisLaporan = async (req, res) => { }

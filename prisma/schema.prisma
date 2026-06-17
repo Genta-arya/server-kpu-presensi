@@ -53,6 +53,16 @@ enum Posisi {
   KEPALA_DIVISI
 }
 
+enum JenisCuti {
+  Tahunan
+  Sakit
+  AlasanPenting @map("Alasan Penting")
+  CutiBesar     @map("Cuti Besar")
+  Melahirkan
+}
+
+
+
 // 3. User sekarang terhubung dengan relasi ke Jabatan dan UnitKerja
 model User {
   id           String    @id @default(uuid())
@@ -86,6 +96,8 @@ model User {
   Absens           Absen[]
   LaporanHarians   LaporanHarian[]
   ReportKesalahans ReportKesalahanData[]
+  PengajuanCutis   PengajuanCuti[]
+  SaldoCutis       SaldoCuti[]
 
   index     Int?
   secret    String?  @db.MediumText
@@ -127,15 +139,75 @@ model LaporanHarian {
   createdAt DateTime @default(now())
 }
 
+enum StatusAbsen {
+  hadir
+  absen
+  izin
+  sakit
+  cuti
+  cuti_luar
+  dinas_luar
+  tugas_belajar
+  tidak_hadir
+}
+
 model Absen {
-  id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  status     String   @default("tidak_hadir")
-  img_ttd    String   @db.MediumText
-  keterangan String?  @db.MediumText
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  status StatusAbsen @default(tidak_hadir)
+
+  img_ttd    String  @db.MediumText
+  keterangan String? @db.MediumText
   koordinat  String?
-  createdAt  DateTime @default(now())
+
+  createdAt DateTime @default(now())
 
   @@unique([userId, createdAt])
+}
+
+enum TahapPersetujuan {
+  MENUNGGU_KASUBAG      // Tahap 1: Menunggu dicek Kasubag
+  MENUNGGU_SEKRETARIS   // Tahap 2: Lolos dari Kasubag, menunggu Sekretaris
+  DISETUJUI             // Tahap Akhir: Sudah disetujui penuh
+  DITOLAK_KASUBAG       // Ditolak di tingkat Kasubag
+  DITOLAK_SEKRETARIS    // Ditolak di tingkat Sekretaris
+  DIBATALKAN
+}
+
+model PengajuanCuti {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jenisCuti      JenisCuti
+  tanggalMulai   DateTime         @db.Date
+  tanggalSelesai DateTime         @db.Date
+  totalHari      Int              // Jumlah hari kerja murni (excl. Sabtu-Minggu)
+  keterangan     String           @db.Text
+  suratDokter    String?          @db.Text // URL berkas fisik surat sakit
+  
+  // Menggunakan Enum Alur Baru bertingkat untuk mengakomodasi aturan dinamis
+  status         TahapPersetujuan @default(MENUNGGU_KASUBAG)
+  
+  catatanAdmin   String?          @db.Text // Alasan jika pengajuan ditolak
+  createdAt      DateTime         @default(now())
+
+  @@index([userId])
+}
+// =================== MODEL BARU KONTROL SALDO KUOTA ===================
+model SaldoCuti {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tahun             Int // Mengontrol jatah per tahun berjalan (Contoh: 2026)
+  sisaTahunan       Int      @default(12) // Regulasi ASN: Default 12 hari kerja (Bisa akumulasi s/d 18)
+  sisaSakit         Int      @default(14) // Batas pengajuan sakit reguler sebelum masuk jalur pemeriksaan intensif
+  sisaAlasanPenting Int      @default(22) // Maksimal 1 bulan kerja (Rata-rata 22 hari kerja)
+  sisaBesar         Int      @default(66) // Maksimal 3 bulan kerja (Rata-rata 66 hari kerja)
+  sisaMelahirkan    Int      @default(90) // Hitungan hari kalender (3 bulan)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, tahun]) // Memastikan tidak ada duplikasi data kuota user di tahun yang sama
 }
