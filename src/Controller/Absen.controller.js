@@ -56,16 +56,17 @@ export const getAbsen = async (req, res) => {
     let whereCondition = { userId: id };
 
     if (month && year) {
-      const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endOfMonth = new Date(
-        parseInt(year),
-        parseInt(month),
-        0,
-        23,
-        59,
-        59,
-        999,
-      );
+      const parsedYear = parseInt(year);
+      const parsedMonth = parseInt(month) - 1;
+
+      // Membuat rentang waktu dengan memperhitungkan offset +8 jam (WITA)
+      // Jika server UTC, kita set jam 00:00:00.000 dengan menggeser 8 jam ke belakang untuk awal bulan,
+      // atau langsung buat objek Date dengan string ISO agar aman.
+      
+      // Contoh menggunakan pergeseran jam UTC+8:
+      const startOfMonth = new Date(Date.UTC(parsedYear, parsedMonth, 1, 0 - 8, 0, 0, 0));
+      const endOfMonth = new Date(Date.UTC(parsedYear, parsedMonth + 1, 0, 23 - 8, 59, 59, 999));
+
       whereCondition.createdAt = { gte: startOfMonth, lte: endOfMonth };
     }
 
@@ -74,16 +75,19 @@ export const getAbsen = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
-    // --- PROSES MENGOSONGKAN SABTU-MINGGU ---
+    // --- PROSES MENGOSONGKAN SABTU-MINGGU DENGAN PENYESUAIAN +8 JAM ---
     const processedAbsen = absen.map((item) => {
       const date = new Date(item.createdAt);
-      const day = date.getDay(); // 0 = Minggu, 6 = Sabtu
+      
+      // Tambahkan 8 jam (dalam milidetik) ke waktu item.createdAt agar harinya akurat sesuai zona waktu +8
+      const localTime = new Date(date.getTime() + (8 * 60 * 60 * 1000));
+      const day = localTime.getUTCDay(); // Gunakan getUTCDay karena sudah digeser secara manual
 
       if (day === 0 || day === 6) {
         return {
           ...item,
           status: null, // Mengosongkan status
-          keterangan: "Libur Akhir Pekan", // Opsional: Beri keterangan
+          keterangan: "Libur Akhir Pekan",
         };
       }
       return item;
@@ -1038,7 +1042,6 @@ export const getRiwayatPengajuanCuti = async (req, res) => {
           },
         },
       },
-     
     });
 
     return res.status(200).json({
