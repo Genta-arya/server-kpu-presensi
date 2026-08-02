@@ -9,18 +9,25 @@ export const createAbsen = async (req, res) => {
       return res.status(400).json({ message: "Semua field wajib diisi" });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // --- PENYESUAIAN WAKTU LOKAL (+8 JAM) ---
+    const offsetMs = 8 * 60 * 60 * 1000;
+    const nowLocal = new Date(Date.now() + offsetMs);
 
-    const besok = new Date(today);
-    besok.setDate(today.getDate() + 1);
+    // Ambil tanggal hari ini dalam format UTC (karena jamnya sudah digeser secara manual)
+    const year = nowLocal.getUTCFullYear();
+    const month = nowLocal.getUTCMonth();
+    const day = nowLocal.getUTCDate();
+
+    // Buat rentang awal hari (00:00:00.000) dan besok dalam waktu +8
+    const todayStart = new Date(Date.UTC(year, month, day, 0 - 8, 0, 0, 0));
+    const besokStart = new Date(Date.UTC(year, month, day + 1, 0 - 8, 0, 0, 0));
 
     const sudahAbsen = await prisma.absen.findFirst({
       where: {
         userId,
         createdAt: {
-          gte: today, // >= jam 00:00 hari ini
-          lt: besok, // < jam 00:00 besok
+          gte: todayStart, // >= jam 00:00 awal hari (+8)
+          lt: besokStart,  // < jam 00:00 hari berikutnya (+8)
         },
       },
     });
@@ -47,7 +54,6 @@ export const createAbsen = async (req, res) => {
       .json({ message: "Terjadi kesalahan", error: error.message });
   }
 };
-
 export const getAbsen = async (req, res) => {
   try {
     const { id } = req.params;
