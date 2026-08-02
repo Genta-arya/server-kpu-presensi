@@ -626,7 +626,16 @@ export const getSingleUser = async (req, res) => {
   const { id } = req.params;
 
   const currentDate = new Date();
-  const today = currentDate.toISOString().split("T")[0]; // YYYY-MM-DD
+
+// 1. Ambil waktu saat ini
+const now = new Date();
+
+// 2. Tambahkan 8 jam (dalam milidetik) untuk zona waktu +8
+const offsetMs = 8 * 60 * 60 * 1000;
+const localDate = new Date(now.getTime() + offsetMs);
+
+// 3. Ambil format YYYY-MM-DD menggunakan getUTC... karena jamnya sudah digeser secara manual
+const today = localDate.toISOString().split("T")[0];
 
   try {
     const user = await prisma.user.findUnique({
