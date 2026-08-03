@@ -11,7 +11,7 @@ const httpServer = createServer(app);
 
 app.use(express.json());
 
-// Daftar domain frontend yang diizinkan mengakses API ini
+// Daftar domain frontend yang diizinkan secara bergantian
 const allowedOrigins = [
   "https://presensi.kpu-sekadau.my.id",
   "https://pegawai.kpu-sekadau.my.id"
@@ -20,8 +20,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Izinkan request tanpa origin (seperti Postman, cURL, atau mobile app)
-      // Atau jika origin terdaftar di dalam allowedOrigins
+      // Jika request dari Postman/server (tanpa origin) atau domain ada di list
       if (!origin || allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
@@ -32,8 +31,7 @@ app.use(
   })
 );
 
-// Menangani preflight request (OPTIONS) untuk semua rute
-app.options("*", cors());
+app.options("*", cors()); // Wajib untuk preflight request
 
 app.use("/", webRoutes); 
 app.get("/api/cron/generate-absen", triggerAutoAbsen);
