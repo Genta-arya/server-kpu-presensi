@@ -538,11 +538,26 @@ export const GetUser = async (req, res) => {
     // Tentukan kondisi boolean untuk field 'active' di database
     const isActiveFilter = status === "inactive" ? false : true;
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // --- PENYESUAIAN ZONA WAKTU (+8 JAM / WITA) ---
+    // Ambil waktu saat ini di server
+    const now = new Date();
+    
+    // Konversi waktu server ke waktu UTC, lalu tambahkan offset +8 jam (dalam milidetik)
+    const offsetHours = 8;
+    const localTime = new Date(now.getTime() + (offsetHours * 60 * 60 * 1000));
 
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+    // Buat rentang awal hari (00:00:00.000) berdasarkan zona waktu +8
+    const todayStart = new Date(localTime);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    // Kembalikan lagi ke acuan waktu standar untuk prisma jika dibutuhkan, 
+    // atau biarkan dalam bentuk UTC yang sudah digeser
+    const startUTC = new Date(todayStart.getTime() - (offsetHours * 60 * 60 * 1000));
+
+    // Buat rentang akhir hari (23:59:59.999) berdasarkan zona waktu +8
+    const todayEnd = new Date(localTime);
+    todayEnd.setUTCHours(23, 59, 59, 999);
+    const endUTC = new Date(todayEnd.getTime() - (offsetHours * 60 * 60 * 1000));
+    // ----------------------------------------------
 
     const data = await prisma.user.findMany({
       where: {
@@ -568,8 +583,8 @@ export const GetUser = async (req, res) => {
         Absens: {
           where: {
             createdAt: {
-              gte: todayStart,
-              lte: todayEnd,
+              gte: startUTC,
+              lte: endUTC,
             },
           },
           select: {
@@ -625,10 +640,26 @@ export const DateTime = async (req, res) => {
 export const getSingleUser = async (req, res) => {
   const { id } = req.params;
 
-  const currentDate = new Date();
-  const today = currentDate.toISOString().split("T")[0]; // YYYY-MM-DD
-
   try {
+    // --- PENYESUAIAN ZONA WAKTU (+8 JAM / WITA) ---
+    const now = new Date();
+    const offsetHours = 8;
+    const localTime = new Date(now.getTime() + (offsetHours * 60 * 60 * 1000));
+
+    // Buat rentang awal hari (00:00:00.000) berdasarkan zona waktu +8
+    const todayStart = new Date(localTime);
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const startUTC = new Date(todayStart.getTime() - (offsetHours * 60 * 60 * 1000));
+
+    // Buat rentang akhir hari (23:59:59.999) berdasarkan zona waktu +8
+    const todayEnd = new Date(localTime);
+    todayEnd.setUTCHours(23, 59, 59, 999);
+    const endUTC = new Date(todayEnd.getTime() - (offsetHours * 60 * 60 * 1000));
+
+    // Ambil format tanggal (YYYY-MM-DD) untuk respons `tanggal_sekarang`
+    const today = localTime.toISOString().split("T")[0];
+    // ----------------------------------------------
+
     const user = await prisma.user.findUnique({
       where: { id: id },
       select: {
@@ -668,13 +699,13 @@ export const getSingleUser = async (req, res) => {
       return sendResponse(res, 404, "User tidak ditemukan");
     }
 
-    // Cek status absen hari ini
+    // Cek status absen hari ini menggunakan rentang waktu UTC yang sudah dikonversi dari +8
     const absensiHariIni = await prisma.absen.findFirst({
       where: {
         userId: id,
         createdAt: {
-          gte: new Date(`${today}T00:00:00.000Z`),
-          lte: new Date(`${today}T23:59:59.999Z`),
+          gte: startUTC,
+          lte: endUTC,
         },
       },
     });
@@ -854,7 +885,7 @@ export const updateAvatar = async (req, res) => {
         SaldoCutis: true,
         gaji: true,
         golongan: true,
-        
+    
 
         email: true,
         avatar: true,
@@ -865,8 +896,8 @@ export const updateAvatar = async (req, res) => {
     });
     return sendResponse(res, 200, "User berhasil diupdate", updatedUser);
   } catch (error) {
-    console.error("Error updating user:", error);
-    sendError(res, 500, "Terjadi kesalahan saat mengupdate user", error);
+     console.error("Error deleting user:", error);
+    sendError(res, 500, "Terjadi kesalahan saat menghapus user", error);
   }
 };
 
