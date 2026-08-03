@@ -854,13 +854,7 @@ export const updateAvatar = async (req, res) => {
         SaldoCutis: true,
         gaji: true,
         golongan: true,
-        strukturUnit: {
-          select: {
-            unit: true,
-            posisi: true,
-            unitKerja: true,
-          },
-        },
+        
 
         email: true,
         avatar: true,
@@ -870,7 +864,10 @@ export const updateAvatar = async (req, res) => {
       },
     });
     return sendResponse(res, 200, "User berhasil diupdate", updatedUser);
-  } catch (error) {}
+  } catch (error) {
+    console.error("Error updating user:", error);
+    sendError(res, 500, "Terjadi kesalahan saat mengupdate user", error);
+  }
 };
 
 export const deleteUser = async (req, res) => {
