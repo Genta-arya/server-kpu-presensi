@@ -351,25 +351,30 @@ export const updateStatusAbsensi = async (req, res) => {
       return sendResponse(res, 400, "Parameter 'tanggal' dan 'userId' wajib diisi.");
     }
 
-    // Ambil bagian tanggalnya saja (YYYY-MM-DD) terlepas apakah formatnya YYYY-MM-DD atau ISO string
-    const dateOnly = tanggal.split("T")[0]; // Menghasilkan "2026-08-04"
+    // Ambil bagian tanggalnya saja (YYYY-MM-DD)
+    const dateOnly = tanggal.split("T")[0]; // Contoh: "2026-08-20"
 
-    const targetDate = new Date(`${dateOnly}T00:00:00+07:00`);
-    const startDate = new Date(`${dateOnly}T00:00:00+07:00`);
-    const endDate = new Date(`${dateOnly}T23:59:59.999+07:00`);
+    // ✅ GUNAKAN UTC MURNI (.000Z) AGAR TIDAK MUNDUR HARI DI DATABASE
+    const targetDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const startDate = new Date(`${dateOnly}T00:00:00.000Z`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999Z`);
 
     if (isNaN(targetDate.getTime()) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       return sendResponse(res, 400, "Format tanggal tidak valid.");
     }
 
     const coordsString = getCoordsForStatus(status);
-    const dayOfWeek = targetDate.getDay();
+    const dayOfWeek = targetDate.getUTCDay(); // Gunakan getUTCDay() untuk UTC murni
 
+    // Helper untuk membuat waktu random dalam format UTC murni
     const getRandomTime = (hour, startMinute, endMinute) => {
-      const d = new Date(`${dateOnly}T00:00:00+07:00`);
+      const d = new Date(`${dateOnly}T00:00:00.000Z`);
       const randomMinute = startMinute + Math.floor(Math.random() * (endMinute - startMinute + 1));
       const randomSecond = Math.floor(Math.random() * 60);
-      d.setHours(hour, randomMinute, randomSecond, 0);
+      
+      // Karena kita ingin jam masuk sekitar jam 8 pagi WIB (yang mana jam 01:00 UTC),
+      // atau jika ingin jam 08:00 UTC, sesuaikan method setUTCHours-nya:
+      d.setUTCHours(hour, randomMinute, randomSecond, 0);
       return d;
     };
 
@@ -380,6 +385,7 @@ export const updateStatusAbsensi = async (req, res) => {
     let jamKeluar = null;
 
     if (!isLibur) {
+      // Jika ingin jam 8 pagi UTC (atau sesuaikan jam kerjanya)
       jamMasuk = getRandomTime(8, 0, 15);
 
       const isHadirOrValid = 
@@ -388,9 +394,9 @@ export const updateStatusAbsensi = async (req, res) => {
 
       if (isHadirOrValid) {
         if (dayOfWeek === 5) {
-          jamKeluar = getRandomTime(16, 30, 45); // Jumat 16:30 - 16:45
+          jamKeluar = getRandomTime(16, 30, 45); // Jumat
         } else {
-          jamKeluar = getRandomTime(16, 0, 15);  // Senin - Kamis 16:00 - 16:15
+          jamKeluar = getRandomTime(16, 0, 15);  // Senin - Kamis
         }
       }
     }
