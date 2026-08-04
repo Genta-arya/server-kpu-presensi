@@ -9,35 +9,33 @@ const app = express();
 const PORT = 8080;
 const httpServer = createServer(app);
 
-app.use(express.json());
-
 // Daftar domain produksi/spesifik
 const allowedOrigins = [
   "https://presensi.kpu-sekadau.my.id",
   "https://pegawai.kpu-sekadau.my.id"
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // 1. Izinkan request tanpa origin (seperti Postman, curl, atau server-to-server)
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    if (isLocalhost || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  credentials: true,
+};
 
-      // 2. Izinkan SEMUA port dari localhost / 127.0.0.1 menggunakan Regex
-      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+// 1. PASANG CORS DI URUTAN PALING PERTAMA
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // Handle preflight untuk semua route
 
-      // 3. Cek apakah origin ada di whitelist domain atau merupakan localhost
-      if (isLocalhost || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  })
-);
-
-app.options("*", cors()); // Preflight request
+// 2. SETELAH CORS, BARU JSON PARSER
+app.use(express.json());
 
 app.use("/", webRoutes); 
 app.get("/api/cron/generate-absen", triggerAutoAbsen);
