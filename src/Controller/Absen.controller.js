@@ -346,16 +346,22 @@ const randomCoordinates = () => {
 export const updateStatusAbsensi = async (req, res) => {
   try {
     const { userId, tanggal, status, keterangan } = req.body;
-    const coordsString = getCoordsForStatus(status);
 
-    // Paksa tanggal dibaca dengan offset +07:00 (WIB)
-    // tanggal diasumsikan format "YYYY-MM-DD"
+    // 1. Validasi awal untuk memastikan 'tanggal' dan 'userId' tersedia
+    if (!tanggal || !userId) {
+      return sendResponse(res, 400, "Parameter 'tanggal' dan 'userId' wajib diisi.");
+    }
+
+    // 2. Validasi format tanggal sederhana (pastikan string valid)
     const targetDate = new Date(`${tanggal}T00:00:00+07:00`);
-    
     const startDate = new Date(`${tanggal}T00:00:00+07:00`);
     const endDate = new Date(`${tanggal}T23:59:59.999+07:00`);
 
-    // Cek hari (0 = Minggu, 1 = Senin, ..., 5 = Jumat, 6 = Sabtu)
+    if (isNaN(targetDate.getTime()) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return sendResponse(res, 400, "Format tanggal tidak valid. Gunakan format YYYY-MM-DD.");
+    }
+
+    const coordsString = getCoordsForStatus(status);
     const dayOfWeek = targetDate.getDay();
 
     // Helper untuk membuat waktu random dalam zona waktu lokal/target
@@ -367,8 +373,9 @@ export const updateStatusAbsensi = async (req, res) => {
       return d;
     };
 
-    // Cek apakah status adalah Libur
-    const isLibur = status && status.toUpperCase() === "LIBUR";
+    // Cek apakah status adalah Libur (aman dari undefined dengan optional chaining / fallback)
+    const statusUpper = status ? status.toUpperCase() : "";
+    const isLibur = statusUpper === "LIBUR";
 
     let jamMasuk = null;
     let jamKeluar = null;
@@ -376,7 +383,11 @@ export const updateStatusAbsensi = async (req, res) => {
     if (!isLibur) {
       jamMasuk = getRandomTime(8, 0, 15);
 
-      if (status === "HADIR" || status === "Hadir" || (!status.toUpperCase().includes("IZIN") && !status.toUpperCase().includes("SAKIT"))) {
+      const isHadirOrValid = 
+        statusUpper === "HADIR" || 
+        (!statusUpper.includes("IZIN") && !statusUpper.includes("SAKIT"));
+
+      if (isHadirOrValid) {
         if (dayOfWeek === 5) {
           jamKeluar = getRandomTime(16, 30, 45); // Jumat 16:30 - 16:45
         } else {
