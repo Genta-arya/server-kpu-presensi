@@ -347,33 +347,32 @@ export const updateStatusAbsensi = async (req, res) => {
   try {
     const { userId, tanggal, status, keterangan } = req.body;
 
-    // 1. Validasi awal untuk memastikan 'tanggal' dan 'userId' tersedia
     if (!tanggal || !userId) {
       return sendResponse(res, 400, "Parameter 'tanggal' dan 'userId' wajib diisi.");
     }
 
-    // 2. Validasi format tanggal sederhana (pastikan string valid)
-    const targetDate = new Date(`${tanggal}T00:00:00+07:00`);
-    const startDate = new Date(`${tanggal}T00:00:00+07:00`);
-    const endDate = new Date(`${tanggal}T23:59:59.999+07:00`);
+    // Ambil bagian tanggalnya saja (YYYY-MM-DD) terlepas apakah formatnya YYYY-MM-DD atau ISO string
+    const dateOnly = tanggal.split("T")[0]; // Menghasilkan "2026-08-04"
+
+    const targetDate = new Date(`${dateOnly}T00:00:00+07:00`);
+    const startDate = new Date(`${dateOnly}T00:00:00+07:00`);
+    const endDate = new Date(`${dateOnly}T23:59:59.999+07:00`);
 
     if (isNaN(targetDate.getTime()) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      return sendResponse(res, 400, "Format tanggal tidak valid. Gunakan format YYYY-MM-DD.");
+      return sendResponse(res, 400, "Format tanggal tidak valid.");
     }
 
     const coordsString = getCoordsForStatus(status);
     const dayOfWeek = targetDate.getDay();
 
-    // Helper untuk membuat waktu random dalam zona waktu lokal/target
     const getRandomTime = (hour, startMinute, endMinute) => {
-      const d = new Date(`${tanggal}T00:00:00+07:00`);
+      const d = new Date(`${dateOnly}T00:00:00+07:00`);
       const randomMinute = startMinute + Math.floor(Math.random() * (endMinute - startMinute + 1));
       const randomSecond = Math.floor(Math.random() * 60);
       d.setHours(hour, randomMinute, randomSecond, 0);
       return d;
     };
 
-    // Cek apakah status adalah Libur (aman dari undefined dengan optional chaining / fallback)
     const statusUpper = status ? status.toUpperCase() : "";
     const isLibur = statusUpper === "LIBUR";
 
