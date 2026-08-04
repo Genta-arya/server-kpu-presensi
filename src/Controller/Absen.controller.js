@@ -348,10 +348,37 @@ export const updateStatusAbsensi = async (req, res) => {
     const { userId, tanggal, status, keterangan } = req.body;
     const coordsString = getCoordsForStatus(status);
 
+    const targetDate = new Date(tanggal);
     const startDate = new Date(tanggal);
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(tanggal);
     endDate.setHours(23, 59, 59, 999);
+
+    // Cek hari (0 = Minggu, 1 = Senin, ..., 5 = Jumat, 6 = Sabtu)
+    const dayOfWeek = targetDate.getDay();
+
+    // Helper untuk membuat waktu random
+    const getRandomTime = (hour, startMinute, endMinute) => {
+      const d = new Date(targetDate);
+      const randomMinute = startMinute + Math.floor(Math.random() * (endMinute - startMinute + 1));
+      const randomSecond = Math.floor(Math.random() * 60);
+      d.setHours(hour, randomMinute, randomSecond, 0);
+      return d;
+    };
+
+    // Jam Masuk: selalu 08:00 - 08:15
+    const jamMasuk = getRandomTime(8, 0, 15);
+
+    // Jam Pulang: Senin-Kamis (1-4) 16:00-16:15, Jumat (5) 16:30-16:45, selain itu default 16:00-16:15
+    let jamKeluar = null;
+    // Jika status masuk/hadir (atau sesuaikan kondisinya), kita set jam keluat otomatis
+    if (status === "HADIR" || status === "Hadir" || !status.includes("IZIN") && !status.includes("SAKIT")) {
+      if (dayOfWeek === 5) {
+        jamKeluar = getRandomTime(16, 30, 45); // Jumat 16:30 - 16:45
+      } else {
+        jamKeluar = getRandomTime(16, 0, 15);  // Senin - Kamis 16:00 - 16:15
+      }
+    }
 
     const existingAbsen = await prisma.absen.findFirst({
       where: {
@@ -367,6 +394,8 @@ export const updateStatusAbsensi = async (req, res) => {
           status,
           keterangan,
           koordinat: coordsString,
+          jam_masuk: jamMasuk,
+          jam_keluar: jamKeluar,
         },
       });
       return sendResponse(res, 200, "Absensi berhasil diupdate", updated);
@@ -377,6 +406,8 @@ export const updateStatusAbsensi = async (req, res) => {
           status,
           keterangan,
           koordinat: coordsString,
+          jam_masuk: jamMasuk,
+          jam_keluar: jamKeluar,
           img_ttd:
             "https://upload.wikimedia.org/wikipedia/commons/a/a3/Image-not-found.png",
           createdAt: new Date(tanggal),
@@ -386,7 +417,6 @@ export const updateStatusAbsensi = async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-
     return sendError(res, 500, "Terjadi kesalahan server", error);
   }
 };
