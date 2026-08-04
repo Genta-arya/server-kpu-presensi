@@ -148,6 +148,7 @@ enum StatusAbsen {
   dinas_luar
   tugas_belajar
   tidak_hadir
+  libur
 }
 
 model Absen {
