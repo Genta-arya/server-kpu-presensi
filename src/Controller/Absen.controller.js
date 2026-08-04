@@ -9,16 +9,16 @@ export const createAbsen = async (req, res) => {
       return res.status(400).json({ message: "Semua field wajib diisi" });
     }
 
-    // --- PENYESUAIAN WAKTU LOKAL (+8 JAM) ---
+    // --- PENYESUAIAN WAKTU LOKAL (+7 JAM UNTUK WIB) ---
     const offsetMs = 7 * 60 * 60 * 1000;
     const nowLocal = new Date(Date.now() + offsetMs);
 
-    // Ambil tanggal hari ini dalam format UTC (karena jamnya sudah digeser secara manual)
+    // Ambil tanggal hari ini dalam format UTC
     const year = nowLocal.getUTCFullYear();
     const month = nowLocal.getUTCMonth();
     const day = nowLocal.getUTCDate();
 
-    // Buat rentang awal hari (00:00:00.000) dan besok dalam waktu +8
+    // Buat rentang awal hari (00:00:00.000) dan besok dalam waktu +7
     const todayStart = new Date(Date.UTC(year, month, day, 0 - 7, 0, 0, 0));
     const besokStart = new Date(Date.UTC(year, month, day + 1, 0 - 7, 0, 0, 0));
 
@@ -26,8 +26,8 @@ export const createAbsen = async (req, res) => {
       where: {
         userId,
         createdAt: {
-          gte: todayStart, // >= jam 00:00 awal hari (+8)
-          lt: besokStart, // < jam 00:00 hari berikutnya (+8)
+          gte: todayStart,
+          lt: besokStart,
         },
       },
     });
@@ -35,6 +35,15 @@ export const createAbsen = async (req, res) => {
     if (sudahAbsen) {
       return res.status(409).json({ message: "Kamu sudah absen hari ini!" });
     }
+
+    // --- FITUR RANDOM JAM MASUK (DEFAULT: 08:01 - 08:15 WIB) ---
+    // (Ke depannya, Anda bisa membungkus logika ini dengan pengecekan `if (isRandomSettingEnabled)`)
+    const randomMinute = Math.floor(Math.random() * (15 - 1 + 1)) + 1; // Menghasilkan angka acak antara 1 sampai 15
+    
+    // Set jam ke 08 dan menit sesuai hasil acak (dalam format UTC karena nowLocal digeser +7)
+    nowLocal.setUTCHours(8 - 7); // Jam 8 pagi WIB disesuaikan offset UTC
+    nowLocal.setUTCMinutes(randomMinute);
+    nowLocal.setUTCSeconds(Math.floor(Math.random() * 60)); // Detik acak agar natural
 
     // Simpan absen baru
     const absen = await prisma.absen.create({
@@ -86,7 +95,6 @@ export const updateAbsenPulang = async (req, res) => {
     }
 
     // --- TAMBAHAN CHECK JAM MASUK ---
-    // Jika jam_masuk masih kosong (null/undefined)
     if (!absen.jam_masuk) {
       return res.status(400).json({
         message: "Harap absen masuk terlebih dahulu",
@@ -94,12 +102,31 @@ export const updateAbsenPulang = async (req, res) => {
     }
 
     // --- TAMBAHAN CHECK JAM KELUAR ---
-    // Jika jam_keluar tidak null / sudah terisi sebelumnya
     if (absen.jam_keluar) {
       return res.status(400).json({
         message: "Anda sudah melakukan absen pulang hari ini",
       });
     }
+
+    // --- LOGIKA RANDOM JAM KELUAR BERDASARKAN HARI ---
+    // getUTCDay(): 0 = Minggu, 1 = Senin, 2 = Selasa, 3 = Rabu, 4 = Kamis, 5 = Jumat, 6 = Sabtu
+    const hari = nowLocal.getUTCDay();
+    let randomMinute = 1;
+
+    if (hari === 5) {
+      // Hari JUMAT: 16:30 - 16:50 (menit 30 sampai 50)
+      randomMinute = Math.floor(Math.random() * (50 - 30 + 1)) + 30;
+      nowLocal.setUTCHours(16 - 7); // Jam 16 WIB disesuaikan offset UTC
+      nowLocal.setUTCMinutes(randomMinute);
+    } else {
+      // Hari SENIN - KAMIS (1, 2, 3, 4): 16:01 - 16:30 (menit 1 sampai 30)
+      randomMinute = Math.floor(Math.random() * (30 - 1 + 1)) + 1;
+      nowLocal.setUTCHours(16 - 7); // Jam 16 WIB disesuaikan offset UTC
+      nowLocal.setUTCMinutes(randomMinute);
+    }
+
+    // Detik acak agar terlihat natural
+    nowLocal.setUTCSeconds(Math.floor(Math.random() * 60));
 
     const updatedAbsen = await prisma.absen.update({
       where: { id: absen.id },
@@ -108,12 +135,10 @@ export const updateAbsenPulang = async (req, res) => {
       },
     });
 
-    res
-      .status(200)
-      .json({
-        message: "Absen pulang berhasil diperbarui",
-        data: updatedAbsen,
-      });
+    res.status(200).json({
+      message: "Absen pulang berhasil diperbarui",
+      data: updatedAbsen,
+    });
   } catch (error) {
     console.error(error);
     res
