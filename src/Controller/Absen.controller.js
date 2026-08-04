@@ -19,8 +19,8 @@ export const createAbsen = async (req, res) => {
     const day = nowLocal.getUTCDate();
 
     // Buat rentang awal hari (00:00:00.000) dan besok dalam waktu +8
-    const todayStart = new Date(Date.UTC(year, month, day, 0 - 8, 0, 0, 0));
-    const besokStart = new Date(Date.UTC(year, month, day + 1, 0 - 8, 0, 0, 0));
+    const todayStart = new Date(Date.UTC(year, month, day, 0 - 7, 0, 0, 0));
+    const besokStart = new Date(Date.UTC(year, month, day + 1, 0 - 7, 0, 0, 0));
 
     const sudahAbsen = await prisma.absen.findFirst({
       where: {
@@ -138,10 +138,10 @@ export const getAbsen = async (req, res) => {
 
       // Contoh menggunakan pergeseran jam UTC+8:
       const startOfMonth = new Date(
-        Date.UTC(parsedYear, parsedMonth, 1, 0 - 8, 0, 0, 0),
+        Date.UTC(parsedYear, parsedMonth, 1, 0 - 7, 0, 0, 0),
       );
       const endOfMonth = new Date(
-        Date.UTC(parsedYear, parsedMonth + 1, 0, 23 - 8, 59, 59, 999),
+        Date.UTC(parsedYear, parsedMonth + 1, 0, 23 - 7, 59, 59, 999),
       );
 
       whereCondition.createdAt = { gte: startOfMonth, lte: endOfMonth };

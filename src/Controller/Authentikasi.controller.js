@@ -602,7 +602,7 @@ export const GetUser = async (req, res) => {
     const now = new Date();
 
     // Konversi waktu server ke waktu UTC, lalu tambahkan offset +8 jam (dalam milidetik)
-    const offsetHours = 8;
+    const offsetHours = 7;
     const localTime = new Date(now.getTime() + offsetHours * 60 * 60 * 1000);
 
     // Buat rentang awal hari (00:00:00.000) berdasarkan zona waktu +8
@@ -704,7 +704,7 @@ export const getSingleUser = async (req, res) => {
   try {
     // --- PENYESUAIAN ZONA WAKTU (+8 JAM / WITA) ---
     const now = new Date();
-    const offsetHours = 8;
+    const offsetHours = 7;
     const localTime = new Date(now.getTime() + offsetHours * 60 * 60 * 1000);
 
     // Buat rentang awal hari (00:00:00.000) berdasarkan zona waktu +8
