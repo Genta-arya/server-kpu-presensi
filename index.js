@@ -11,7 +11,7 @@ const httpServer = createServer(app);
 
 app.use(express.json());
 
-// Daftar domain frontend yang diizinkan secara bergantian
+// Daftar domain produksi/spesifik
 const allowedOrigins = [
   "https://presensi.kpu-sekadau.my.id",
   "https://pegawai.kpu-sekadau.my.id"
@@ -20,8 +20,14 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Jika request dari Postman/server (tanpa origin) atau domain ada di list
-      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      // 1. Izinkan request tanpa origin (seperti Postman, curl, atau server-to-server)
+      if (!origin) return callback(null, true);
+
+      // 2. Izinkan SEMUA port dari localhost / 127.0.0.1 menggunakan Regex
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+      // 3. Cek apakah origin ada di whitelist domain atau merupakan localhost
+      if (isLocalhost || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -31,7 +37,7 @@ app.use(
   })
 );
 
-app.options("*", cors()); // Wajib untuk preflight request
+app.options("*", cors()); // Preflight request
 
 app.use("/", webRoutes); 
 app.get("/api/cron/generate-absen", triggerAutoAbsen);

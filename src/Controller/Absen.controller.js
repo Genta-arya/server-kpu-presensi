@@ -10,7 +10,7 @@ export const createAbsen = async (req, res) => {
     }
 
     // --- PENYESUAIAN WAKTU LOKAL (+8 JAM) ---
-    const offsetMs = 8 * 60 * 60 * 1000;
+    const offsetMs = 7 * 60 * 60 * 1000;
     const nowLocal = new Date(Date.now() + offsetMs);
 
     // Ambil tanggal hari ini dalam format UTC (karena jamnya sudah digeser secara manual)
@@ -27,7 +27,7 @@ export const createAbsen = async (req, res) => {
         userId,
         createdAt: {
           gte: todayStart, // >= jam 00:00 awal hari (+8)
-          lt: besokStart,  // < jam 00:00 hari berikutnya (+8)
+          lt: besokStart, // < jam 00:00 hari berikutnya (+8)
         },
       },
     });
@@ -42,11 +42,78 @@ export const createAbsen = async (req, res) => {
         userId,
         img_ttd,
         koordinat: koordinat,
+        jam_masuk: nowLocal,
         status: status || "hadir",
       },
     });
 
     res.status(201).json({ message: "Absen berhasil", data: absen });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Terjadi kesalahan", error: error.message });
+  }
+};
+
+export const updateAbsenPulang = async (req, res) => {
+  const { userId } = req.body;
+  try {
+    const nowLocal = new Date(Date.now() + 7 * 60 * 60 * 1000); // +7 jam untuk WIB
+    const todayStart = new Date(
+      Date.UTC(
+        nowLocal.getFullYear(),
+        nowLocal.getMonth(),
+        nowLocal.getDate(),
+        0 - 7,
+        0,
+        0,
+        0,
+      ),
+    );
+
+    const absen = await prisma.absen.findFirst({
+      where: {
+        userId,
+        createdAt: {
+          gte: todayStart,
+        },
+      },
+    });
+
+    if (!absen) {
+      return res.status(404).json({ message: "Absen tidak ditemukan" });
+    }
+
+    // --- TAMBAHAN CHECK JAM MASUK ---
+    // Jika jam_masuk masih kosong (null/undefined)
+    if (!absen.jam_masuk) {
+      return res.status(400).json({
+        message: "Harap absen masuk terlebih dahulu",
+      });
+    }
+
+    // --- TAMBAHAN CHECK JAM KELUAR ---
+    // Jika jam_keluar tidak null / sudah terisi sebelumnya
+    if (absen.jam_keluar) {
+      return res.status(400).json({
+        message: "Anda sudah melakukan absen pulang hari ini",
+      });
+    }
+
+    const updatedAbsen = await prisma.absen.update({
+      where: { id: absen.id },
+      data: {
+        jam_keluar: nowLocal,
+      },
+    });
+
+    res
+      .status(200)
+      .json({
+        message: "Absen pulang berhasil diperbarui",
+        data: updatedAbsen,
+      });
   } catch (error) {
     console.error(error);
     res
@@ -68,10 +135,14 @@ export const getAbsen = async (req, res) => {
       // Membuat rentang waktu dengan memperhitungkan offset +8 jam (WITA)
       // Jika server UTC, kita set jam 00:00:00.000 dengan menggeser 8 jam ke belakang untuk awal bulan,
       // atau langsung buat objek Date dengan string ISO agar aman.
-      
+
       // Contoh menggunakan pergeseran jam UTC+8:
-      const startOfMonth = new Date(Date.UTC(parsedYear, parsedMonth, 1, 0 - 8, 0, 0, 0));
-      const endOfMonth = new Date(Date.UTC(parsedYear, parsedMonth + 1, 0, 23 - 8, 59, 59, 999));
+      const startOfMonth = new Date(
+        Date.UTC(parsedYear, parsedMonth, 1, 0 - 8, 0, 0, 0),
+      );
+      const endOfMonth = new Date(
+        Date.UTC(parsedYear, parsedMonth + 1, 0, 23 - 8, 59, 59, 999),
+      );
 
       whereCondition.createdAt = { gte: startOfMonth, lte: endOfMonth };
     }
@@ -84,9 +155,9 @@ export const getAbsen = async (req, res) => {
     // --- PROSES MENGOSONGKAN SABTU-MINGGU DENGAN PENYESUAIAN +8 JAM ---
     const processedAbsen = absen.map((item) => {
       const date = new Date(item.createdAt);
-      
-      // Tambahkan 8 jam (dalam milidetik) ke waktu item.createdAt agar harinya akurat sesuai zona waktu +8
-      const localTime = new Date(date.getTime() + (8 * 60 * 60 * 1000));
+
+      // Tambahkan 7 jam (dalam milidetik) ke waktu item.createdAt agar harinya akurat sesuai zona waktu +7
+      const localTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
       const day = localTime.getUTCDay(); // Gunakan getUTCDay karena sudah digeser secara manual
 
       if (day === 0 || day === 6) {

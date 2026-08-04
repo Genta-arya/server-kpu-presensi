@@ -61,8 +61,6 @@ enum JenisCuti {
   Melahirkan
 }
 
-
-
 // 3. User sekarang terhubung dengan relasi ke Jabatan dan UnitKerja
 model User {
   id           String    @id @default(uuid())
@@ -80,6 +78,7 @@ model User {
   role         Role      @default(USER)
   token        String?   @db.MediumText
   mfa_secret   String?   @db.MediumText
+  save_mfa     Boolean   @default(false)
   active       Boolean   @default(true)
   golonganId   String?
   golongan     Golongan? @relation(fields: [golonganId], references: [id])
@@ -156,7 +155,9 @@ model Absen {
   userId String
   user   User   @relation(fields: [userId], references: [id])
 
-  status StatusAbsen @default(tidak_hadir)
+  status     StatusAbsen @default(tidak_hadir)
+  jam_masuk  DateTime?
+  jam_keluar DateTime?
 
   img_ttd    String  @db.MediumText
   keterangan String? @db.MediumText
@@ -168,33 +169,34 @@ model Absen {
 }
 
 enum TahapPersetujuan {
-  MENUNGGU_KASUBAG      // Tahap 1: Menunggu dicek Kasubag
-  MENUNGGU_SEKRETARIS   // Tahap 2: Lolos dari Kasubag, menunggu Sekretaris
-  DISETUJUI             // Tahap Akhir: Sudah disetujui penuh
-  DITOLAK_KASUBAG       // Ditolak di tingkat Kasubag
-  DITOLAK_SEKRETARIS    // Ditolak di tingkat Sekretaris
+  MENUNGGU_KASUBAG // Tahap 1: Menunggu dicek Kasubag
+  MENUNGGU_SEKRETARIS // Tahap 2: Lolos dari Kasubag, menunggu Sekretaris
+  DISETUJUI // Tahap Akhir: Sudah disetujui penuh
+  DITOLAK_KASUBAG // Ditolak di tingkat Kasubag
+  DITOLAK_SEKRETARIS // Ditolak di tingkat Sekretaris
   DIBATALKAN
 }
 
 model PengajuanCuti {
-  id             String           @id @default(uuid())
+  id             String    @id @default(uuid())
   userId         String
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   jenisCuti      JenisCuti
-  tanggalMulai   DateTime         @db.Date
-  tanggalSelesai DateTime         @db.Date
-  totalHari      Int              // Jumlah hari kerja murni (excl. Sabtu-Minggu)
-  keterangan     String           @db.Text
-  suratDokter    String?          @db.Text // URL berkas fisik surat sakit
-  
+  tanggalMulai   DateTime  @db.Date
+  tanggalSelesai DateTime  @db.Date
+  totalHari      Int // Jumlah hari kerja murni (excl. Sabtu-Minggu)
+  keterangan     String    @db.Text
+  suratDokter    String?   @db.Text // URL berkas fisik surat sakit
+
   // Menggunakan Enum Alur Baru bertingkat untuk mengakomodasi aturan dinamis
-  status         TahapPersetujuan @default(MENUNGGU_KASUBAG)
-  
-  catatanAdmin   String?          @db.Text // Alasan jika pengajuan ditolak
-  createdAt      DateTime         @default(now())
+  status TahapPersetujuan @default(MENUNGGU_KASUBAG)
+
+  catatanAdmin String?  @db.Text // Alasan jika pengajuan ditolak
+  createdAt    DateTime @default(now())
 
   @@index([userId])
 }
+
 // =================== MODEL BARU KONTROL SALDO KUOTA ===================
 model SaldoCuti {
   id                String   @id @default(uuid())

@@ -8,6 +8,7 @@ import {
   getPengajuanCuti,
   getRiwayatPengajuanCuti,
   getStaffPengajuanCutiForKasubag,
+  updateAbsenPulang,
   updateStatusAbsensi,
   updateStatusCuti,
 } from "../Controller/Absen.controller.js";
@@ -15,6 +16,7 @@ import {
 export const RoutesAbsensi = express.Router();
 
 RoutesAbsensi.post("/absen", createAbsen);
+RoutesAbsensi.post("/absen/pulang", updateAbsenPulang);
 RoutesAbsensi.get("/absen/:id", getAbsen);
 RoutesAbsensi.get("/absen", getAllAbsensi);
 RoutesAbsensi.post("/absen/update", updateStatusAbsensi);

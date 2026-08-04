@@ -297,12 +297,45 @@ export const handleRegister = async (req, res) => {
 export const Session = async (req, res) => {
   const { token, secretCode } = req.body;
 
+  // 1. Waktu saat ini (+7 jam untuk WIB)
+  const nowLocal = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const today = nowLocal.toISOString();
+
+  // 2. Tentukan batas awal hari ini jam 00:00:00 WIB (dalam UTC)
+  const todayStart = new Date(
+    Date.UTC(
+      nowLocal.getFullYear(),
+      nowLocal.getMonth(),
+      nowLocal.getDate(),
+      0 - 7, // -7 untuk kompensasi WIB (UTC+7)
+      0,
+      0,
+      0,
+    ),
+  );
+
+  // Filter untuk mengambil Absen hari ini saja
+  const absenHariIniQuery = {
+    where: {
+      createdAt: {
+        gte: todayStart,
+      },
+    },
+    select: {
+      id: true,
+      status: true,
+      jam_masuk: true,
+      jam_keluar: true,
+      createdAt: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 1, // Ambil data absen terbaru hari ini
+  };
+
   try {
     if (token) {
-      if (!token) {
-        console.log("Token tidak ditemukan");
-        return sendResponse(res, 409, "Silahkan login terlebih dahulu");
-      }
       const findUser = await prisma.user.findFirst({
         where: { token },
         select: {
@@ -326,30 +359,40 @@ export const Session = async (req, res) => {
               unitKerja: true,
             },
           },
-
           avatar: true,
           role: true,
           status_login: true,
           secret: true,
           token: true,
+          // --- TAMBAHAN AMBIL ABSEN HARI INI ---
+          Absens: absenHariIniQuery,
         },
       });
+
       if (!findUser) {
-        // hapus token di db
-        await prisma.user.update({
+        await prisma.user.updateMany({
           where: { token },
           data: { status_login: false, token: null },
         });
 
         return sendResponse(res, 409, "Silahkan login terlebih dahulu");
       }
-      sendResponse(res, 200, "Success", findUser);
+
+      // Ambil objek absen pertama (jika ada), jika belum absen fallback ke null
+      const absenHariIni = findUser.Absens?.[0] || null;
+
+      // Hapus properti array 'Absens' dari object user supaya payload JSON lebih ringan & rapi
+      delete findUser.Absens;
+
+      // 3. Kirim response dengan tambahan properti absenHariIni & array Absens yang aman
+      return sendResponse(res, 200, "Success", {
+        ...findUser,
+        today: today,
+        absenHariIni: absenHariIni, // Bernilai objek { ... } atau null
+        Absens: absenHariIni ? [absenHariIni] : [], // Tetap sediakan Absens sebagai array kosong [] agar frontend tidak crash saat `.map()` atau `.[0]`
+      });
     } else {
       if (!secretCode) {
-        await prisma.user.update({
-          where: { secret: secretCode },
-          data: { status_login: false, token: null },
-        });
         return sendResponse(res, 409, "Silahkan login terlebih dahulu");
       } else {
         const findUser = await prisma.user.findFirst({
@@ -365,17 +408,29 @@ export const Session = async (req, res) => {
             role: true,
             status_login: true,
             token: true,
+            // --- TAMBAHAN AMBIL ABSEN HARI INI ---
+            Absens: absenHariIniQuery,
           },
         });
+
         if (!findUser) {
-          // hapus token di db
-          await prisma.user.update({
+          await prisma.user.updateMany({
             where: { secret: secretCode },
             data: { status_login: false, token: null },
           });
           return sendResponse(res, 409, "Silahkan login terlebih dahulu");
         }
-        sendResponse(res, 200, "Success", findUser);
+
+        // Ambil objek absen pertama (jika ada), jika belum absen fallback ke null
+        const absenHariIni = findUser.Absens?.[0] || null;
+        delete findUser.Absens;
+
+        return sendResponse(res, 200, "Success", {
+          ...findUser,
+          today: today,
+          absenHariIni: absenHariIni,
+          Absens: absenHariIni ? [absenHariIni] : [],
+        });
       }
     }
   } catch (error) {
@@ -385,10 +440,12 @@ export const Session = async (req, res) => {
         id: true,
       },
     });
+
     if (!findUsers) {
       console.log("Token tidak ditemukan error");
       return sendResponse(res, 409, "Silahkan login terlebih dahulu");
     }
+
     if (error instanceof jwt.TokenExpiredError) {
       await prisma.user.update({
         where: { id: findUsers.id },
@@ -396,6 +453,7 @@ export const Session = async (req, res) => {
       });
       return sendResponse(res, 409, "Token telah kedaluwarsa");
     }
+
     if (error instanceof jwt.JsonWebTokenError) {
       await prisma.user.update({
         where: { id: findUsers.id },
@@ -403,6 +461,7 @@ export const Session = async (req, res) => {
       });
       return sendResponse(res, 409, "Token tidak valid atau format salah");
     }
+
     return sendError(res, error);
   }
 };
@@ -541,22 +600,24 @@ export const GetUser = async (req, res) => {
     // --- PENYESUAIAN ZONA WAKTU (+8 JAM / WITA) ---
     // Ambil waktu saat ini di server
     const now = new Date();
-    
+
     // Konversi waktu server ke waktu UTC, lalu tambahkan offset +8 jam (dalam milidetik)
     const offsetHours = 8;
-    const localTime = new Date(now.getTime() + (offsetHours * 60 * 60 * 1000));
+    const localTime = new Date(now.getTime() + offsetHours * 60 * 60 * 1000);
 
     // Buat rentang awal hari (00:00:00.000) berdasarkan zona waktu +8
     const todayStart = new Date(localTime);
     todayStart.setUTCHours(0, 0, 0, 0);
-    // Kembalikan lagi ke acuan waktu standar untuk prisma jika dibutuhkan, 
+    // Kembalikan lagi ke acuan waktu standar untuk prisma jika dibutuhkan,
     // atau biarkan dalam bentuk UTC yang sudah digeser
-    const startUTC = new Date(todayStart.getTime() - (offsetHours * 60 * 60 * 1000));
+    const startUTC = new Date(
+      todayStart.getTime() - offsetHours * 60 * 60 * 1000,
+    );
 
     // Buat rentang akhir hari (23:59:59.999) berdasarkan zona waktu +8
     const todayEnd = new Date(localTime);
     todayEnd.setUTCHours(23, 59, 59, 999);
-    const endUTC = new Date(todayEnd.getTime() - (offsetHours * 60 * 60 * 1000));
+    const endUTC = new Date(todayEnd.getTime() - offsetHours * 60 * 60 * 1000);
     // ----------------------------------------------
 
     const data = await prisma.user.findMany({
@@ -644,17 +705,19 @@ export const getSingleUser = async (req, res) => {
     // --- PENYESUAIAN ZONA WAKTU (+8 JAM / WITA) ---
     const now = new Date();
     const offsetHours = 8;
-    const localTime = new Date(now.getTime() + (offsetHours * 60 * 60 * 1000));
+    const localTime = new Date(now.getTime() + offsetHours * 60 * 60 * 1000);
 
     // Buat rentang awal hari (00:00:00.000) berdasarkan zona waktu +8
     const todayStart = new Date(localTime);
     todayStart.setUTCHours(0, 0, 0, 0);
-    const startUTC = new Date(todayStart.getTime() - (offsetHours * 60 * 60 * 1000));
+    const startUTC = new Date(
+      todayStart.getTime() - offsetHours * 60 * 60 * 1000,
+    );
 
     // Buat rentang akhir hari (23:59:59.999) berdasarkan zona waktu +8
     const todayEnd = new Date(localTime);
     todayEnd.setUTCHours(23, 59, 59, 999);
-    const endUTC = new Date(todayEnd.getTime() - (offsetHours * 60 * 60 * 1000));
+    const endUTC = new Date(todayEnd.getTime() - offsetHours * 60 * 60 * 1000);
 
     // Ambil format tanggal (YYYY-MM-DD) untuk respons `tanggal_sekarang`
     const today = localTime.toISOString().split("T")[0];
@@ -885,7 +948,6 @@ export const updateAvatar = async (req, res) => {
         SaldoCutis: true,
         gaji: true,
         golongan: true,
-    
 
         email: true,
         avatar: true,
@@ -896,7 +958,7 @@ export const updateAvatar = async (req, res) => {
     });
     return sendResponse(res, 200, "User berhasil diupdate", updatedUser);
   } catch (error) {
-     console.error("Error deleting user:", error);
+    console.error("Error deleting user:", error);
     sendError(res, 500, "Terjadi kesalahan saat menghapus user", error);
   }
 };
