@@ -5,6 +5,7 @@ import { RoutesLaporan } from "./src/Routes/Laporan.Routes.js";
 import { RoutesSubbagian } from "./src/Routes/Subbagian.routes.js";
 import { RoutesJabatan } from "./src/Routes/Jabatan.routes.js";
 import { RoutesReportData } from "./src/Routes/ReportData.routes.js";
+import { RoutesDeveloper } from "./src/Routes/Developer.routes.js";
 
 const router = express.Router();
 
@@ -14,4 +15,5 @@ router.use("/api/v1/laporan", RoutesLaporan);
 router.use("/api/v1/subbagian", RoutesSubbagian);
 router.use("/api/v1/jabatan", RoutesJabatan);
 router.use("/api/v1/reportData", RoutesReportData);
+router.use("/api/v1/dev", RoutesDeveloper);
 export default router;

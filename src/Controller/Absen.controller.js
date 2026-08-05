@@ -36,14 +36,16 @@ export const createAbsen = async (req, res) => {
       return res.status(409).json({ message: "Kamu sudah absen hari ini!" });
     }
 
-    // --- FITUR RANDOM JAM MASUK (DEFAULT: 08:01 - 08:15 WIB) ---
-    // (Ke depannya, Anda bisa membungkus logika ini dengan pengecekan `if (isRandomSettingEnabled)`)
-    const randomMinute = Math.floor(Math.random() * (15 - 1 + 1)) + 1; // Menghasilkan angka acak antara 1 sampai 15
+    // --- FITUR RANDOM JAM MASUK (07:30 - 07:59 WIB) ---
+    // Menghasilkan menit acak antara 30 sampai 59
+    const randomMinute = Math.floor(Math.random() * (59 - 30 + 1)) + 30; 
+    const randomSecond = Math.floor(Math.random() * 60); // Detik acak agar natural
 
-    // Set jam ke 08 dan menit sesuai hasil acak (dalam format UTC karena nowLocal digeser +7)
-    nowLocal.setUTCHours(8 - 7); // Jam 8 pagi WIB disesuaikan offset UTC
+    // Set ke Jam 7 pagi WIB (7 dikurangi offset UTC 7 jam menjadi 0 UTC)
+    nowLocal.setUTCHours(7 - 7); 
     nowLocal.setUTCMinutes(randomMinute);
-    nowLocal.setUTCSeconds(Math.floor(Math.random() * 60)); // Detik acak agar natural
+    nowLocal.setUTCSeconds(randomSecond);
+    nowLocal.setUTCMilliseconds(0);
 
     // Simpan absen baru
     const absen = await prisma.absen.create({
