@@ -421,7 +421,7 @@ export const updateStatusAbsensi = async (req, res) => {
     if (!isLibur) {
       // Jam 08:00 WIB dikurangi 7 jam = Jam 01:00 UTC
       // Range menit masuk: 01:01 sampai 01:15 UTC (artinya 08:01 - 08:15 WIB)
-      jamMasuk = getRandomTime(8 - 7, 1, 15);
+      jamMasuk = getRandomTime(7 - 7, 30, 59);
 
       const isHadirOrValid =
         statusUpper === "HADIR" ||
