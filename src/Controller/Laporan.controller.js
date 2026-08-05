@@ -30,14 +30,27 @@ export const GetLaporan = async (req, res) => {
     const { idUser, date } = req.query;
     const isDateValid = date && date !== "undefined" && date !== "null" && !isNaN(Date.parse(date));
 
+    let dateCondition = {};
+    if (isDateValid) {
+      // Ambil string tanggal secara mentah (misal: "2026-08-05")
+      // Ambil 10 karakter pertama untuk memastikan format YYYY-MM-DD
+      const dateStr = date.split("T")[0]; 
+      const [year, month, day] = dateStr.split("-").map(Number);
+
+      // Buat rentang awal hari (00:00:00.000) dan akhir hari (23:59:59.999) 
+      // disesuaikan dengan offset WIB (-7 jam dari UTC) agar pas 1 hari penuh di database
+      const startOfDay = new Date(Date.UTC(year, month - 1, day, 0 - 7, 0, 0, 0));
+      const endOfDay = new Date(Date.UTC(year, month - 1, day, 23 - 7, 59, 59, 999));
+
+      dateCondition = {
+        gte: startOfDay,
+        lte: endOfDay,
+      };
+    }
+
     const whereCondition = {
       ...(idUser && { userId: idUser }),
-      ...(isDateValid && {
-        createdAt: {
-          gte: new Date(new Date(date).setHours(0, 0, 0, 0)),
-          lte: new Date(new Date(date).setHours(23, 59, 59, 999)),
-        },
-      }),
+      ...(isDateValid && { createdAt: dateCondition }),
     };
 
     const laporan = await prisma.laporanHarian.findMany({
